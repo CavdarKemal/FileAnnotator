@@ -23,18 +23,37 @@ public class SaveService {
     /** Unterordner im Benutzerprofil. */
     public static final String ALBUM_SUBDIR = "Pictures/PicTreeAlbums";
 
-    private static final float JPEG_QUALITY = 0.92f;
+    /** Standard-JPEG-Qualität, falls nicht anders angegeben. */
+    public static final float DEFAULT_QUALITY = 0.92f;
 
     private final Path targetDir;
+    private final float quality;
 
-    /** Verwendet den Standard-Album-Ordner im Benutzerprofil. */
+    /** Verwendet den Standard-Album-Ordner im Benutzerprofil und Standardqualität. */
     public SaveService() {
-        this(defaultAlbumDir());
+        this(defaultAlbumDir(), DEFAULT_QUALITY);
     }
 
-    /** Verwendet einen expliziten Zielordner (z. B. für Tests). */
+    /** Expliziter Zielordner, Standardqualität (z. B. für Tests). */
     public SaveService(Path targetDir) {
+        this(targetDir, DEFAULT_QUALITY);
+    }
+
+    /** Expliziter Zielordner und JPEG-Qualität (0.1..1.0). */
+    public SaveService(Path targetDir, float quality) {
         this.targetDir = targetDir;
+        this.quality = clampQuality(quality);
+    }
+
+    public float getQuality() {
+        return quality;
+    }
+
+    private static float clampQuality(float q) {
+        if (q < 0.1f) {
+            return 0.1f;
+        }
+        return Math.min(q, 1.0f);
     }
 
     /** Standard-Zielordner: {@code <user.home>/Pictures/PicTreeAlbums}. */
@@ -74,7 +93,7 @@ public class SaveService {
         return candidate;
     }
 
-    private static void writeJpeg(BufferedImage image, File target) throws IOException {
+    private void writeJpeg(BufferedImage image, File target) throws IOException {
         Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
         if (!writers.hasNext()) {
             throw new IOException("Kein JPEG-Writer verfügbar");
@@ -83,7 +102,7 @@ public class SaveService {
         ImageWriteParam param = writer.getDefaultWriteParam();
         if (param.canWriteCompressed()) {
             param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionQuality(JPEG_QUALITY);
+            param.setCompressionQuality(quality);
         }
         try (ImageOutputStream ios = ImageIO.createImageOutputStream(target)) {
             writer.setOutput(ios);

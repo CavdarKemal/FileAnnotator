@@ -7,6 +7,7 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,6 +23,7 @@ import de.hasil.pictree.App;
 import de.hasil.pictree.model.Annotation;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.AnnotationStore;
+import de.hasil.pictree.service.AppSettings;
 import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
@@ -43,9 +45,10 @@ public class MainFrame extends JFrame {
     private final CommentPanel commentPanel;
     private final JLabel statusLabel;
     private final StampStyle style = new StampStyle();
-    private final SaveService saveService = new SaveService();
+    private final AppSettings settings;
+    private final SaveService saveService;
     private final ExifService exifService = new ExifService();
-    private final BatchService batchService = new BatchService(saveService, exifService);
+    private final BatchService batchService;
     private final AnnotationStore annotationStore = new AnnotationStore();
 
     private File selectedFolder;
@@ -53,9 +56,19 @@ public class MainFrame extends JFrame {
     private File annotatedImage;
 
     public MainFrame() {
+        this(new AppSettings().load());
+    }
+
+    public MainFrame(AppSettings settings) {
         super(App.APP_NAME);
+        this.settings = settings;
+        this.saveService = new SaveService(Path.of(settings.getTargetDir()), settings.getJpegQuality());
+        this.batchService = new BatchService(saveService, exifService);
+        style.copyFrom(settings.getDefaultStyle());
+
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1000, 680));
+        setMinimumSize(new Dimension(800, 560));
+        setSize(settings.getWindowWidth(), settings.getWindowHeight());
         setLocationByPlatform(true);
 
         treePanel = new FileTreePanel();
@@ -87,6 +100,7 @@ public class MainFrame extends JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 persistCurrentAnnotation();
+                persistSettings();
             }
         });
     }
@@ -140,6 +154,18 @@ public class MainFrame extends JFrame {
         } catch (IOException ex) {
             LOG.log(Level.WARNING, "Annotation konnte nicht gespeichert werden", ex);
         }
+    }
+
+    /** Speichert Fenstergröße, zuletzt genutzten Ordner und Standard-Stil. */
+    private void persistSettings() {
+        settings.setWindowSize(getWidth(), getHeight());
+        settings.setDefaultStyle(style);
+        if (selectedFolder != null) {
+            settings.setLastFolder(selectedFolder.getAbsolutePath());
+        } else if (annotatedImage != null && annotatedImage.getParentFile() != null) {
+            settings.setLastFolder(annotatedImage.getParentFile().getAbsolutePath());
+        }
+        settings.save();
     }
 
     private void refreshPreviewStyle() {
