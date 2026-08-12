@@ -80,7 +80,9 @@ public class BatchService {
                 if (src == null) {
                     failed.add(image);
                 } else {
-                    BufferedImage stamped = ImageStampService.renderStamp(src, text, style);
+                    // Platzhalter je Bild auflösen (z. B. {datum}, {dateiname}).
+                    String resolved = PlaceholderResolver.resolve(text, image);
+                    BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style);
                     outFile = saveService.save(stamped, image.getName());
                     exifService.copyExif(image, outFile);
                     saved.add(outFile);

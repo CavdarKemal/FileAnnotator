@@ -41,6 +41,7 @@ import de.hasil.pictree.service.AppSettings;
 import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
+import de.hasil.pictree.service.PlaceholderResolver;
 import de.hasil.pictree.service.PresetStore;
 import de.hasil.pictree.service.SaveService;
 import de.hasil.pictree.util.Logging;
@@ -341,7 +342,8 @@ public class MainFrame extends JFrame {
     }
 
     private void onCommentChanged(String text) {
-        previewPanel.setOverlayText(text);
+        // Platzhalter (z. B. {datum}, {dateiname}) für die Vorschau auflösen.
+        previewPanel.setOverlayText(PlaceholderResolver.resolve(text, annotatedImage));
         recordState();
     }
 
@@ -370,7 +372,7 @@ public class MainFrame extends JFrame {
             style.copyFrom(state.style());
             styleToolbar.syncFromStyle();
             commentPanel.setText(state.comment());
-            previewPanel.setOverlayText(state.comment());
+            previewPanel.setOverlayText(PlaceholderResolver.resolve(state.comment(), annotatedImage));
             previewPanel.setStampStyle(style);
         } finally {
             restoring = false;
@@ -423,7 +425,8 @@ public class MainFrame extends JFrame {
             return;
         }
         try {
-            BufferedImage stamped = ImageStampService.renderStamp(src, commentPanel.getText(), style);
+            String resolved = PlaceholderResolver.resolve(commentPanel.getText(), original);
+            BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style);
             File saved = saveService.save(stamped, original.getName());
             boolean exifCopied = exifService.copyExif(original, saved);
             statusLabel.setText("Gespeichert: " + saved.getAbsolutePath()
