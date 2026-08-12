@@ -32,6 +32,12 @@ public class StampStyle {
     /** Dezenter Umriss/Schatten für Lesbarkeit auf beliebigem Hintergrund. */
     private boolean outline = true;
 
+    /** Drehwinkel des Textblocks in Grad (im Uhrzeigersinn). */
+    private double rotationDegrees = 0.0;
+
+    /** Umbruchbreite als Bruchteil der Bildbreite (0 = kein automatischer Umbruch). */
+    private double wrapWidthFraction = 0.0;
+
     public StampStyle() {
         // Standardwerte
     }
@@ -92,6 +98,22 @@ public class StampStyle {
         this.outline = outline;
     }
 
+    public double getRotationDegrees() {
+        return rotationDegrees;
+    }
+
+    public void setRotationDegrees(double rotationDegrees) {
+        this.rotationDegrees = rotationDegrees;
+    }
+
+    public double getWrapWidthFraction() {
+        return wrapWidthFraction;
+    }
+
+    public void setWrapWidthFraction(double wrapWidthFraction) {
+        this.wrapWidthFraction = clamp01(wrapWidthFraction);
+    }
+
     /** Übernimmt alle Werte aus {@code o} in dieses Objekt (In-Place). */
     public void copyFrom(StampStyle o) {
         if (o == null) {
@@ -104,6 +126,8 @@ public class StampStyle {
         this.relX = o.relX;
         this.relY = o.relY;
         this.outline = o.outline;
+        this.rotationDegrees = o.rotationDegrees;
+        this.wrapWidthFraction = o.wrapWidthFraction;
     }
 
     /** Tiefe Kopie dieses Stils. */
@@ -116,6 +140,8 @@ public class StampStyle {
         c.relX = this.relX;
         c.relY = this.relY;
         c.outline = this.outline;
+        c.rotationDegrees = this.rotationDegrees;
+        c.wrapWidthFraction = this.wrapWidthFraction;
         return c;
     }
 

@@ -24,6 +24,8 @@ public final class StampStyleCodec {
         p.setProperty(prefix + "relX", Double.toString(s.getRelX()));
         p.setProperty(prefix + "relY", Double.toString(s.getRelY()));
         p.setProperty(prefix + "outline", Boolean.toString(s.isOutline()));
+        p.setProperty(prefix + "rotationDegrees", Double.toString(s.getRotationDegrees()));
+        p.setProperty(prefix + "wrapWidthFraction", Double.toString(s.getWrapWidthFraction()));
     }
 
     /** Liest einen Style unter {@code prefix}; fehlende Felder werden aus {@code fallback} übernommen. */
@@ -39,6 +41,8 @@ public final class StampStyleCodec {
         s.setRelY(parseDouble(p, prefix + "relY", base.getRelY()));
         s.setOutline(Boolean.parseBoolean(
                 p.getProperty(prefix + "outline", Boolean.toString(base.isOutline()))));
+        s.setRotationDegrees(parseDouble(p, prefix + "rotationDegrees", base.getRotationDegrees()));
+        s.setWrapWidthFraction(parseDouble(p, prefix + "wrapWidthFraction", base.getWrapWidthFraction()));
         return s;
     }
 

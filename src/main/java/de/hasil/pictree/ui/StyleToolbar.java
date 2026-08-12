@@ -27,6 +27,9 @@ public class StyleToolbar extends JToolBar {
     private static final int MIN_PERCENT = 2;
     private static final int MAX_PERCENT = 30;
 
+    /** Umbruchbreite, wenn aktiviert (Bruchteil der Bildbreite). */
+    private static final double WRAP_FRACTION = 0.9;
+
     private final StampStyle style;
     private final Runnable onChange;
     private final Runnable onCommit;
@@ -36,6 +39,8 @@ public class StyleToolbar extends JToolBar {
             new JComboBox<>(FontRegistry.AVAILABLE_FAMILIES.toArray(new String[0]));
     private final JToggleButton boldToggle = new JToggleButton("F");
     private final JSlider sizeSlider = new JSlider(MIN_PERCENT, MAX_PERCENT, MIN_PERCENT);
+    private final JSlider rotationSlider = new JSlider(-180, 180, 0);
+    private final JToggleButton wrapToggle = new JToggleButton("⏎");
 
     /** Verhindert Rückkopplung, während die Widgets aus dem Style gesetzt werden. */
     private boolean syncing;
@@ -108,6 +113,38 @@ public class StyleToolbar extends JToolBar {
             }
         });
         add(sizeSlider);
+        addSeparator();
+
+        // Rotation
+        add(new JLabel(" Drehung: "));
+        rotationSlider.setMaximumSize(new Dimension(160, 40));
+        rotationSlider.setMajorTickSpacing(90);
+        rotationSlider.setPaintTicks(true);
+        rotationSlider.setToolTipText("Textdrehung in Grad");
+        rotationSlider.addChangeListener(e -> {
+            if (syncing) {
+                return;
+            }
+            style.setRotationDegrees(rotationSlider.getValue());
+            onChange.run();
+            if (!rotationSlider.getValueIsAdjusting()) {
+                onCommit.run();
+            }
+        });
+        add(rotationSlider);
+        addSeparator();
+
+        // Zeilenumbruch
+        wrapToggle.setToolTipText("Automatischer Zeilenumbruch");
+        wrapToggle.addActionListener(e -> {
+            if (syncing) {
+                return;
+            }
+            style.setWrapWidthFraction(wrapToggle.isSelected() ? WRAP_FRACTION : 0.0);
+            onChange.run();
+            onCommit.run();
+        });
+        add(wrapToggle);
     }
 
     /** Aktualisiert alle Bedienelemente anhand des aktuellen {@link StampStyle}. */
@@ -119,6 +156,8 @@ public class StyleToolbar extends JToolBar {
             boldToggle.setSelected((style.getFontStyle() & Font.BOLD) != 0);
             int percent = Math.round(style.getRelativeSize() * 100f);
             sizeSlider.setValue(Math.min(MAX_PERCENT, Math.max(MIN_PERCENT, percent)));
+            rotationSlider.setValue((int) Math.round(style.getRotationDegrees()));
+            wrapToggle.setSelected(style.getWrapWidthFraction() > 0);
         } finally {
             syncing = false;
         }
