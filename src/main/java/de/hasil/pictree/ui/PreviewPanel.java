@@ -1,18 +1,25 @@
 package de.hasil.pictree.ui;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.KeyStroke;
 
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.ImageSupport;
@@ -41,15 +48,22 @@ public class PreviewPanel extends JPanel {
     /** Wird nach Abschluss eines Ziehvorgangs aufgerufen (z. B. Undo-Schritt aufzeichnen). */
     private Runnable dragCommitListener = () -> { };
 
+    /** Aktive Einrast-Hilfslinien (während des Ziehens). */
+    private boolean guideX;
+    private boolean guideY;
+
     public PreviewPanel() {
         setBackground(new Color(40, 40, 40));
+        setFocusable(true);
         installDragHandlers();
+        installKeyBindings();
     }
 
     private void installDragHandlers() {
         MouseAdapter handler = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                requestFocusInWindow();
                 if (hasImage() && TextDragModel.hitTest(e.getPoint(), lastTextRect, DRAG_PADDING)) {
                     drag.begin(e.getPoint(), style.getRelX(), style.getRelY(), lastImageRect);
                     setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
@@ -60,8 +74,12 @@ public class PreviewPanel extends JPanel {
             public void mouseDragged(MouseEvent e) {
                 if (drag.isDragging()) {
                     Point2D.Double rel = drag.update(e.getPoint(), lastImageRect);
-                    style.setRelX(rel.x);
-                    style.setRelY(rel.y);
+                    Snapping.Snap sx = Snapping.snap(rel.x);
+                    Snapping.Snap sy = Snapping.snap(rel.y);
+                    guideX = sx.snapped();
+                    guideY = sy.snapped();
+                    style.setRelX(sx.value());
+                    style.setRelY(sy.value());
                     repaint();
                 }
             }
@@ -70,7 +88,10 @@ public class PreviewPanel extends JPanel {
             public void mouseReleased(MouseEvent e) {
                 boolean wasDragging = drag.isDragging();
                 drag.end();
+                guideX = false;
+                guideY = false;
                 updateCursor(e.getPoint());
+                repaint();
                 if (wasDragging) {
                     dragCommitListener.run();
                 }
@@ -85,9 +106,44 @@ public class PreviewPanel extends JPanel {
         addMouseMotionListener(handler);
     }
 
-    private void updateCursor(java.awt.Point p) {
+    private void updateCursor(Point p) {
         boolean overText = hasImage() && TextDragModel.hitTest(p, lastTextRect, DRAG_PADDING);
         setCursor(Cursor.getPredefinedCursor(overText ? Cursor.MOVE_CURSOR : Cursor.DEFAULT_CURSOR));
+    }
+
+    private void installKeyBindings() {
+        bindNudge("nudge.left", KeyEvent.VK_LEFT, 0, -1, 0, 1);
+        bindNudge("nudge.right", KeyEvent.VK_RIGHT, 0, 1, 0, 1);
+        bindNudge("nudge.up", KeyEvent.VK_UP, 0, 0, -1, 1);
+        bindNudge("nudge.down", KeyEvent.VK_DOWN, 0, 0, 1, 1);
+        bindNudge("nudge.leftBig", KeyEvent.VK_LEFT, java.awt.event.InputEvent.SHIFT_DOWN_MASK, -1, 0, 10);
+        bindNudge("nudge.rightBig", KeyEvent.VK_RIGHT, java.awt.event.InputEvent.SHIFT_DOWN_MASK, 1, 0, 10);
+        bindNudge("nudge.upBig", KeyEvent.VK_UP, java.awt.event.InputEvent.SHIFT_DOWN_MASK, 0, -1, 10);
+        bindNudge("nudge.downBig", KeyEvent.VK_DOWN, java.awt.event.InputEvent.SHIFT_DOWN_MASK, 0, 1, 10);
+    }
+
+    private void bindNudge(String name, int keyCode, int modifiers, int dx, int dy, int stepPx) {
+        getInputMap(JComponent.WHEN_FOCUSED)
+                .put(KeyStroke.getKeyStroke(keyCode, modifiers), name);
+        getActionMap().put(name, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                nudge(dx, dy, stepPx);
+            }
+        });
+    }
+
+    /** Verschiebt den Textanker um {@code stepPx} Vorschau-Pixel in Richtung (dx,dy). */
+    private void nudge(int dx, int dy, int stepPx) {
+        if (!hasImage() || lastImageRect.width <= 0 || lastImageRect.height <= 0) {
+            return;
+        }
+        double newX = style.getRelX() + (double) (dx * stepPx) / lastImageRect.width;
+        double newY = style.getRelY() + (double) (dy * stepPx) / lastImageRect.height;
+        style.setRelX(newX);
+        style.setRelY(newY);
+        repaint();
+        dragCommitListener.run(); // jede Tastatur-Verschiebung ist ein Undo-Schritt
     }
 
     /** Selektiert eine Datei; lädt sie als Bild oder schaltet in den Nicht-Bild-Zustand. */
@@ -153,8 +209,25 @@ public class PreviewPanel extends JPanel {
             lastImageRect = fit;
             g2.drawImage(image, fit.x, fit.y, fit.width, fit.height, null);
             lastTextRect = TextStampRenderer.drawStamp(g2, overlayText, style, fit);
+            paintGuides(g2, fit);
         } finally {
             g2.dispose();
+        }
+    }
+
+    /** Zeichnet Einrast-Hilfslinien am aktuellen Anker, solange gerastet wird. */
+    private void paintGuides(Graphics2D g2, Rectangle fit) {
+        if (!guideX && !guideY) {
+            return;
+        }
+        Point anchor = PreviewGeometry.relativeToPanel(style.getRelX(), style.getRelY(), fit);
+        g2.setColor(new Color(0, 200, 255, 180));
+        g2.setStroke(new BasicStroke(1f));
+        if (guideX) {
+            g2.drawLine(anchor.x, fit.y, anchor.x, fit.y + fit.height);
+        }
+        if (guideY) {
+            g2.drawLine(fit.x, anchor.y, fit.x + fit.width, anchor.y);
         }
     }
 
