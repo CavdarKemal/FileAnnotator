@@ -1,6 +1,5 @@
 package de.hasil.pictree.service;
 
-import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
@@ -37,13 +36,7 @@ public class AnnotationStore {
     public void save(File image, String comment, StampStyle style) throws IOException {
         Properties p = new Properties();
         p.setProperty("comment", comment == null ? "" : comment);
-        p.setProperty("color", Integer.toString(style.getColor().getRGB()));
-        p.setProperty("fontFamily", style.getFontFamily());
-        p.setProperty("fontStyle", Integer.toString(style.getFontStyle()));
-        p.setProperty("relativeSize", Float.toString(style.getRelativeSize()));
-        p.setProperty("relX", Double.toString(style.getRelX()));
-        p.setProperty("relY", Double.toString(style.getRelY()));
-        p.setProperty("outline", Boolean.toString(style.isOutline()));
+        StampStyleCodec.write(p, "", style);
 
         File sidecar = sidecarFor(image);
         try (Writer w = Files.newBufferedWriter(sidecar.toPath(), StandardCharsets.UTF_8)) {
@@ -64,15 +57,7 @@ public class AnnotationStore {
             return Optional.empty();
         }
 
-        StampStyle style = new StampStyle();
-        style.setColor(new Color(parseInt(p, "color", Color.WHITE.getRGB()), true));
-        style.setFontFamily(p.getProperty("fontFamily", style.getFontFamily()));
-        style.setFontStyle(parseInt(p, "fontStyle", style.getFontStyle()));
-        style.setRelativeSize((float) parseDouble(p, "relativeSize", style.getRelativeSize()));
-        style.setRelX(parseDouble(p, "relX", style.getRelX()));
-        style.setRelY(parseDouble(p, "relY", style.getRelY()));
-        style.setOutline(Boolean.parseBoolean(p.getProperty("outline", "true")));
-
+        StampStyle style = StampStyleCodec.read(p, "", new StampStyle());
         String comment = p.getProperty("comment", "");
         return Optional.of(new Annotation(comment, style));
     }
@@ -81,23 +66,5 @@ public class AnnotationStore {
     public boolean delete(File image) {
         File sidecar = sidecarFor(image);
         return sidecar.exists() && sidecar.delete();
-    }
-
-    private static int parseInt(Properties p, String key, int fallback) {
-        try {
-            String v = p.getProperty(key);
-            return v == null ? fallback : Integer.parseInt(v.trim());
-        } catch (NumberFormatException ex) {
-            return fallback;
-        }
-    }
-
-    private static double parseDouble(Properties p, String key, double fallback) {
-        try {
-            String v = p.getProperty(key);
-            return v == null ? fallback : Double.parseDouble(v.trim());
-        } catch (NumberFormatException ex) {
-            return fallback;
-        }
     }
 }
