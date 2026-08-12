@@ -12,6 +12,8 @@ import javax.swing.JTextArea;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import de.hasil.pictree.util.I18n;
+
 /**
  * Eingabebereich für den Kommentar-/Stempeltext samt Aktions-Buttons
  * ("Bild speichern", "Ordner stempeln"). Textänderungen werden live an einen
@@ -21,12 +23,12 @@ import javax.swing.event.DocumentListener;
 public class CommentPanel extends JPanel {
 
     private final JTextArea textArea = new JTextArea(3, 20);
-    private final JButton saveButton = new JButton("Bild speichern");
-    private final JButton batchButton = new JButton("Ordner stempeln");
+    private final JButton saveButton = new JButton(I18n.t("button.save"));
+    private final JButton batchButton = new JButton(I18n.t("button.batch"));
 
     public CommentPanel() {
         super(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("Kommentar / Stempeltext"));
+        setBorder(BorderFactory.createTitledBorder(I18n.t("comment.title")));
 
         textArea.setLineWrap(true);
         textArea.setWrapStyleWord(true);

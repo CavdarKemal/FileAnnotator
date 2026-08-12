@@ -24,6 +24,7 @@ public final class App {
 
     public static void main(String[] args) {
         AppSettings settings = new AppSettings().load();
+        de.hasil.pictree.util.I18n.init(java.util.Locale.forLanguageTag(settings.getLanguage()));
         SwingUtilities.invokeLater(() -> {
             Themes.apply(settings.getTheme());
             MainFrame frame = new MainFrame(settings);

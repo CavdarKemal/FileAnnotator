@@ -145,6 +145,14 @@ public class AppSettings {
 
     // --- Theme ---------------------------------------------------------------
 
+    public String getLanguage() {
+        return props.getProperty("language", "de");
+    }
+
+    public void setLanguage(String lang) {
+        props.setProperty("language", "en".equals(lang) ? "en" : "de");
+    }
+
     public String getTheme() {
         return props.getProperty("theme", THEME_LIGHT);
     }

@@ -47,6 +47,7 @@ import de.hasil.pictree.service.ImageSupport;
 import de.hasil.pictree.service.PlaceholderResolver;
 import de.hasil.pictree.service.PresetStore;
 import de.hasil.pictree.service.SaveService;
+import de.hasil.pictree.util.I18n;
 import de.hasil.pictree.util.Logging;
 import de.hasil.pictree.util.UndoHistory;
 
@@ -107,7 +108,7 @@ public class MainFrame extends JFrame {
         previewPanel = new PreviewPanel();
         previewPanel.setStampStyle(style);
         commentPanel = new CommentPanel();
-        statusLabel = new JLabel("Keine Datei ausgewählt.");
+        statusLabel = new JLabel(I18n.t("status.noSelection"));
         styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
         effectsToolbar = new EffectsToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
 
@@ -160,7 +161,7 @@ public class MainFrame extends JFrame {
         commentPanel.getSaveButton().setEnabled(isImage);
         selectedFolder = (file != null && file.isDirectory()) ? file : null;
         commentPanel.getBatchButton().setEnabled(selectedFolder != null);
-        statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath());
+        statusLabel.setText(file == null ? I18n.t("status.noSelection") : file.getAbsolutePath());
 
         // Ordner für "Zuletzt verwendet" merken (Ordnerauswahl oder Elternordner eines Bildes).
         File folderToRemember = selectedFolder != null ? selectedFolder
@@ -233,37 +234,44 @@ public class MainFrame extends JFrame {
     private JMenuBar buildMenuBar() {
         JMenuBar bar = new JMenuBar();
 
-        JMenu file = new JMenu("Datei");
+        JMenu file = new JMenu(I18n.t("menu.file"));
+        recentMenu.setText(I18n.t("menu.recent"));
         updateRecentMenu();
         file.add(recentMenu);
         bar.add(file);
 
-        JMenu edit = new JMenu("Bearbeiten");
-        undoItem = new JMenuItem("Rückgängig");
+        JMenu edit = new JMenu(I18n.t("menu.edit"));
+        undoItem = new JMenuItem(I18n.t("menu.undo"));
         undoItem.addActionListener(e -> undo());
-        redoItem = new JMenuItem("Wiederholen");
+        redoItem = new JMenuItem(I18n.t("menu.redo"));
         redoItem.addActionListener(e -> redo());
         edit.add(undoItem);
         edit.add(redoItem);
         bar.add(edit);
         updateUndoRedoState();
 
-        JMenu view = new JMenu("Ansicht");
-        JCheckBoxMenuItem darkItem = new JCheckBoxMenuItem("Dunkles Theme");
+        JMenu view = new JMenu(I18n.t("menu.view"));
+        JCheckBoxMenuItem darkItem = new JCheckBoxMenuItem(I18n.t("menu.view.dark"));
         darkItem.setSelected(AppSettings.THEME_DARK.equals(settings.getTheme()));
         darkItem.addActionListener(e -> toggleTheme(darkItem.isSelected()));
         view.add(darkItem);
 
-        JCheckBoxMenuItem overlayItem = new JCheckBoxMenuItem("Text einblenden", true);
+        JCheckBoxMenuItem overlayItem = new JCheckBoxMenuItem(I18n.t("menu.view.overlay"), true);
         overlayItem.addActionListener(e -> previewPanel.setShowOverlay(overlayItem.isSelected()));
         view.add(overlayItem);
 
-        JCheckBoxMenuItem safeAreaItem = new JCheckBoxMenuItem("Sicherer Bereich");
+        JCheckBoxMenuItem safeAreaItem = new JCheckBoxMenuItem(I18n.t("menu.view.safearea"));
         safeAreaItem.addActionListener(e -> previewPanel.setShowSafeArea(safeAreaItem.isSelected()));
         view.add(safeAreaItem);
 
+        JMenu language = new JMenu(I18n.t("menu.view.language"));
+        addLanguageItem(language, "de", I18n.t("language.de"));
+        addLanguageItem(language, "en", I18n.t("language.en"));
+        view.add(language);
+
         bar.add(view);
 
+        presetMenu.setText(I18n.t("menu.presets"));
         updatePresetMenu();
         bar.add(presetMenu);
 
@@ -272,18 +280,18 @@ public class MainFrame extends JFrame {
     }
 
     private JMenu buildLogoMenu() {
-        JMenu logo = new JMenu("Logo");
-        JMenuItem choose = new JMenuItem("Logo wählen…");
+        JMenu logo = new JMenu(I18n.t("menu.logo"));
+        JMenuItem choose = new JMenuItem(I18n.t("menu.logo.choose"));
         choose.addActionListener(e -> onChooseLogo());
         logo.add(choose);
-        JMenuItem remove = new JMenuItem("Logo entfernen");
+        JMenuItem remove = new JMenuItem(I18n.t("menu.logo.remove"));
         remove.addActionListener(e -> {
             logoOverlay = null;
             previewPanel.setLogoOverlay(null);
         });
         logo.add(remove);
 
-        JMenu position = new JMenu("Position");
+        JMenu position = new JMenu(I18n.t("menu.logo.position"));
         addLogoPosition(position, "Oben links", 0.15, 0.15);
         addLogoPosition(position, "Oben rechts", 0.85, 0.15);
         addLogoPosition(position, "Mitte", 0.5, 0.5);
@@ -291,7 +299,7 @@ public class MainFrame extends JFrame {
         addLogoPosition(position, "Unten rechts", 0.85, 0.85);
         logo.add(position);
 
-        JMenu opacity = new JMenu("Deckkraft");
+        JMenu opacity = new JMenu(I18n.t("menu.logo.opacity"));
         for (int pct : new int[] {25, 50, 75, 100}) {
             JMenuItem item = new JMenuItem(pct + " %");
             float value = pct / 100f;
@@ -340,7 +348,7 @@ public class MainFrame extends JFrame {
     /** Baut das "Vorlagen"-Menü neu auf (Speichern + Liste + Löschen). */
     private void updatePresetMenu() {
         presetMenu.removeAll();
-        JMenuItem saveAs = new JMenuItem("Als Vorlage speichern…");
+        JMenuItem saveAs = new JMenuItem(I18n.t("menu.presets.saveAs"));
         saveAs.addActionListener(e -> onSavePreset());
         presetMenu.add(saveAs);
 
@@ -352,7 +360,7 @@ public class MainFrame extends JFrame {
                 item.addActionListener(e -> applyPreset(name));
                 presetMenu.add(item);
             }
-            JMenu deleteMenu = new JMenu("Löschen");
+            JMenu deleteMenu = new JMenu(I18n.t("menu.presets.delete"));
             for (String name : names) {
                 JMenuItem del = new JMenuItem(name);
                 del.addActionListener(e -> {
@@ -364,6 +372,17 @@ public class MainFrame extends JFrame {
             presetMenu.addSeparator();
             presetMenu.add(deleteMenu);
         }
+    }
+
+    private void addLanguageItem(JMenu menu, String lang, String label) {
+        JCheckBoxMenuItem item = new JCheckBoxMenuItem(label, settings.getLanguage().equals(lang));
+        item.addActionListener(e -> {
+            settings.setLanguage(lang);
+            settings.save();
+            JOptionPane.showMessageDialog(this, I18n.t("language.restart"),
+                    I18n.t("menu.view.language"), JOptionPane.INFORMATION_MESSAGE);
+        });
+        menu.add(item);
     }
 
     private void onSavePreset() {
@@ -474,7 +493,7 @@ public class MainFrame extends JFrame {
         recentMenu.removeAll();
         List<String> recent = settings.getRecentFolders();
         if (recent.isEmpty()) {
-            JMenuItem empty = new JMenuItem("(keine)");
+            JMenuItem empty = new JMenuItem(I18n.t("menu.recent.empty"));
             empty.setEnabled(false);
             recentMenu.add(empty);
             return;
