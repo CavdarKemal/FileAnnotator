@@ -1,10 +1,14 @@
 package de.hasil.pictree.ui;
 
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 
@@ -26,11 +30,58 @@ public class PreviewPanel extends JPanel {
     private String overlayText = "";
     private StampStyle style = new StampStyle();
 
-    /** Zuletzt gezeichnetes Bildrechteck (Panel-Koordinaten) – Basis für Drag in Schritt 6. */
+    /** Zuletzt gezeichnetes Bildrechteck (Panel-Koordinaten) – Basis für Drag. */
     private Rectangle lastImageRect = new Rectangle(0, 0, 0, 0);
+
+    /** Zuletzt gezeichnete Text-Bounding-Box (Panel-Koordinaten) für Treffer-Test. */
+    private Rectangle lastTextRect;
+
+    private static final int DRAG_PADDING = 8;
+    private final TextDragModel drag = new TextDragModel();
 
     public PreviewPanel() {
         setBackground(new Color(40, 40, 40));
+        installDragHandlers();
+    }
+
+    private void installDragHandlers() {
+        MouseAdapter handler = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (hasImage() && TextDragModel.hitTest(e.getPoint(), lastTextRect, DRAG_PADDING)) {
+                    drag.begin(e.getPoint(), style.getRelX(), style.getRelY(), lastImageRect);
+                    setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+                }
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (drag.isDragging()) {
+                    Point2D.Double rel = drag.update(e.getPoint(), lastImageRect);
+                    style.setRelX(rel.x);
+                    style.setRelY(rel.y);
+                    repaint();
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                drag.end();
+                updateCursor(e.getPoint());
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                updateCursor(e.getPoint());
+            }
+        };
+        addMouseListener(handler);
+        addMouseMotionListener(handler);
+    }
+
+    private void updateCursor(java.awt.Point p) {
+        boolean overText = hasImage() && TextDragModel.hitTest(p, lastTextRect, DRAG_PADDING);
+        setCursor(Cursor.getPredefinedCursor(overText ? Cursor.MOVE_CURSOR : Cursor.DEFAULT_CURSOR));
     }
 
     /** Selektiert eine Datei; lädt sie als Bild oder schaltet in den Nicht-Bild-Zustand. */
@@ -82,6 +133,7 @@ public class PreviewPanel extends JPanel {
             if (image == null) {
                 paintPlaceholder(g2);
                 lastImageRect = new Rectangle(0, 0, 0, 0);
+                lastTextRect = null;
                 return;
             }
 
@@ -89,7 +141,7 @@ public class PreviewPanel extends JPanel {
                     image.getWidth(), image.getHeight(), getWidth(), getHeight());
             lastImageRect = fit;
             g2.drawImage(image, fit.x, fit.y, fit.width, fit.height, null);
-            TextStampRenderer.drawStamp(g2, overlayText, style, fit);
+            lastTextRect = TextStampRenderer.drawStamp(g2, overlayText, style, fit);
         } finally {
             g2.dispose();
         }
