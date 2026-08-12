@@ -6,6 +6,9 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -90,6 +93,36 @@ public class AppSettings {
 
     public void setLastFolder(String path) {
         props.setProperty("lastFolder", path == null ? "" : path);
+    }
+
+    /** Maximale Anzahl gemerkter Ordner. */
+    public static final int MAX_RECENT = 8;
+
+    /** Zuletzt verwendete Ordner, neueste zuerst. */
+    public List<String> getRecentFolders() {
+        String raw = props.getProperty("recentFolders", "");
+        List<String> result = new ArrayList<>();
+        for (String line : raw.split("\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    /** Fügt einen Ordner vorne ein (dedupliziert, gekappt auf {@link #MAX_RECENT}). */
+    public void addRecentFolder(String path) {
+        if (path == null || path.isBlank()) {
+            return;
+        }
+        LinkedList<String> list = new LinkedList<>(getRecentFolders());
+        list.remove(path);
+        list.addFirst(path);
+        while (list.size() > MAX_RECENT) {
+            list.removeLast();
+        }
+        props.setProperty("recentFolders", String.join("\n", list));
     }
 
     public String getTargetDir() {

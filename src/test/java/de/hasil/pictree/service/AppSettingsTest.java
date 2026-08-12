@@ -75,4 +75,34 @@ class AppSettingsTest {
         s.setTheme("weirdo");
         assertEquals(AppSettings.THEME_LIGHT, s.getTheme());
     }
+
+    @Test
+    void recentFoldersDedupOrderAndCap(@TempDir Path dir) {
+        AppSettings s = new AppSettings(dir.resolve("settings.properties"));
+        assertTrue(s.getRecentFolders().isEmpty());
+
+        s.addRecentFolder("A");
+        s.addRecentFolder("B");
+        s.addRecentFolder("A"); // A wieder nach vorne, kein Duplikat
+        assertEquals(java.util.List.of("A", "B"), s.getRecentFolders());
+
+        for (int i = 0; i < AppSettings.MAX_RECENT + 5; i++) {
+            s.addRecentFolder("dir" + i);
+        }
+        assertEquals(AppSettings.MAX_RECENT, s.getRecentFolders().size());
+        // Neuester zuerst:
+        assertEquals("dir" + (AppSettings.MAX_RECENT + 4), s.getRecentFolders().get(0));
+    }
+
+    @Test
+    void recentFoldersSurviveRoundTrip(@TempDir Path dir) {
+        Path file = dir.resolve("settings.properties");
+        AppSettings s = new AppSettings(file);
+        s.addRecentFolder("D:/Bilder/2024");
+        s.addRecentFolder("D:/Bilder/2025");
+        s.save();
+
+        AppSettings r = new AppSettings(file).load();
+        assertEquals(java.util.List.of("D:/Bilder/2025", "D:/Bilder/2024"), r.getRecentFolders());
+    }
 }

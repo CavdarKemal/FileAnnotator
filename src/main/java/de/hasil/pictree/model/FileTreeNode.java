@@ -87,9 +87,10 @@ public class FileTreeNode {
     private List<FileTreeNode> loadChildren() {
         File[] raw;
         if (syntheticRoot) {
-            raw = fsv.getRoots();
+            // Laufwerke als oberste Ebene – ermöglicht verlässliche Pfadnavigation.
+            raw = File.listRoots();
             if (raw == null || raw.length == 0) {
-                raw = File.listRoots();
+                raw = fsv.getRoots();
             }
         } else if (file.isDirectory()) {
             raw = file.listFiles();

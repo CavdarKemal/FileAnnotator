@@ -8,6 +8,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,6 +18,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
@@ -58,6 +60,7 @@ public class MainFrame extends JFrame {
     private File selectedFolder;
     /** Aktuell angezeigtes Bild, dessen Annotation bearbeitet wird (oder null). */
     private File annotatedImage;
+    private final JMenu recentMenu = new JMenu("Zuletzt verwendet");
 
     public MainFrame() {
         this(new AppSettings().load());
@@ -108,6 +111,11 @@ public class MainFrame extends JFrame {
                 persistSettings();
             }
         });
+
+        String last = settings.getLastFolder();
+        if (!last.isBlank()) {
+            SwingUtilities.invokeLater(() -> treePanel.selectPath(new File(last)));
+        }
     }
 
     private void onSelectionChanged(File file) {
@@ -120,6 +128,14 @@ public class MainFrame extends JFrame {
         selectedFolder = (file != null && file.isDirectory()) ? file : null;
         commentPanel.getBatchButton().setEnabled(selectedFolder != null);
         statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath());
+
+        // Ordner für "Zuletzt verwendet" merken (Ordnerauswahl oder Elternordner eines Bildes).
+        File folderToRemember = selectedFolder != null ? selectedFolder
+                : (file != null ? file.getParentFile() : null);
+        if (folderToRemember != null) {
+            settings.addRecentFolder(folderToRemember.getAbsolutePath());
+            updateRecentMenu();
+        }
 
         if (isImage) {
             annotatedImage = file;
@@ -175,6 +191,12 @@ public class MainFrame extends JFrame {
 
     private JMenuBar buildMenuBar() {
         JMenuBar bar = new JMenuBar();
+
+        JMenu file = new JMenu("Datei");
+        updateRecentMenu();
+        file.add(recentMenu);
+        bar.add(file);
+
         JMenu view = new JMenu("Ansicht");
         JCheckBoxMenuItem darkItem = new JCheckBoxMenuItem("Dunkles Theme");
         darkItem.setSelected(AppSettings.THEME_DARK.equals(settings.getTheme()));
@@ -182,6 +204,23 @@ public class MainFrame extends JFrame {
         view.add(darkItem);
         bar.add(view);
         return bar;
+    }
+
+    /** Baut das "Zuletzt verwendet"-Menü aus den Einstellungen neu auf. */
+    private void updateRecentMenu() {
+        recentMenu.removeAll();
+        List<String> recent = settings.getRecentFolders();
+        if (recent.isEmpty()) {
+            JMenuItem empty = new JMenuItem("(keine)");
+            empty.setEnabled(false);
+            recentMenu.add(empty);
+            return;
+        }
+        for (String path : recent) {
+            JMenuItem item = new JMenuItem(path);
+            item.addActionListener(e -> treePanel.selectPath(new File(path)));
+            recentMenu.add(item);
+        }
     }
 
     private void toggleTheme(boolean dark) {
