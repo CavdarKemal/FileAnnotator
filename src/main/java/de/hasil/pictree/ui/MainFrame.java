@@ -237,6 +237,15 @@ public class MainFrame extends JFrame {
         darkItem.setSelected(AppSettings.THEME_DARK.equals(settings.getTheme()));
         darkItem.addActionListener(e -> toggleTheme(darkItem.isSelected()));
         view.add(darkItem);
+
+        JCheckBoxMenuItem overlayItem = new JCheckBoxMenuItem("Text einblenden", true);
+        overlayItem.addActionListener(e -> previewPanel.setShowOverlay(overlayItem.isSelected()));
+        view.add(overlayItem);
+
+        JCheckBoxMenuItem safeAreaItem = new JCheckBoxMenuItem("Sicherer Bereich");
+        safeAreaItem.addActionListener(e -> previewPanel.setShowSafeArea(safeAreaItem.isSelected()));
+        view.add(safeAreaItem);
+
         bar.add(view);
         return bar;
     }

@@ -78,6 +78,14 @@ public final class PreviewGeometry {
         return new int[] {panX, panY};
     }
 
+    /** Verkleinert ein Rechteck um {@code fraction} je Seite (für den Sicheren-Bereich). */
+    public static Rectangle insetRect(Rectangle r, double fraction) {
+        int dx = (int) Math.round(r.width * fraction);
+        int dy = (int) Math.round(r.height * fraction);
+        return new Rectangle(r.x + dx, r.y + dy,
+                Math.max(0, r.width - 2 * dx), Math.max(0, r.height - 2 * dy));
+    }
+
     private static double clamp01(double v) {
         if (v < 0) {
             return 0;

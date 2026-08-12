@@ -94,4 +94,13 @@ class PreviewGeometryTest {
         assertEquals(0, pan[0]);
         assertEquals(0, pan[1]);
     }
+
+    @Test
+    void insetRectShrinksSymmetrically() {
+        Rectangle r = PreviewGeometry.insetRect(new Rectangle(0, 0, 200, 100), 0.05);
+        assertEquals(10, r.x);   // 5% von 200
+        assertEquals(5, r.y);    // 5% von 100
+        assertEquals(180, r.width);
+        assertEquals(90, r.height);
+    }
 }

@@ -53,6 +53,11 @@ public class PreviewPanel extends JPanel {
     private boolean guideX;
     private boolean guideY;
 
+    /** Anzeige-Optionen: Overlay (Vorher/Nachher) und Sicherer-Bereich-Rahmen. */
+    private boolean showOverlay = true;
+    private boolean showSafeArea;
+    private static final double SAFE_AREA_MARGIN = 0.05;
+
     /** Zoom (1.0 = eingepasst) und Pan-Versatz in Panel-Pixeln. */
     private static final double MIN_ZOOM = 1.0;
     private static final double MAX_ZOOM = 8.0;
@@ -258,6 +263,26 @@ public class PreviewPanel extends JPanel {
         this.dragCommitListener = listener == null ? () -> { } : listener;
     }
 
+    /** Blendet den Text-Stempel ein/aus (Vorher/Nachher-Vergleich). */
+    public void setShowOverlay(boolean show) {
+        this.showOverlay = show;
+        repaint();
+    }
+
+    public boolean isShowOverlay() {
+        return showOverlay;
+    }
+
+    /** Zeigt/verbirgt den Sicheren-Bereich-Rahmen. */
+    public void setShowSafeArea(boolean show) {
+        this.showSafeArea = show;
+        repaint();
+    }
+
+    public boolean isShowSafeArea() {
+        return showSafeArea;
+    }
+
     public void setStampStyle(StampStyle style) {
         this.style = style == null ? new StampStyle() : style;
         repaint();
@@ -302,7 +327,10 @@ public class PreviewPanel extends JPanel {
             Rectangle fit = displayRect();
             lastImageRect = fit;
             g2.drawImage(image, fit.x, fit.y, fit.width, fit.height, null);
-            lastTextRect = TextStampRenderer.drawStamp(g2, overlayText, style, fit);
+            lastTextRect = showOverlay ? TextStampRenderer.drawStamp(g2, overlayText, style, fit) : null;
+            if (showSafeArea) {
+                paintSafeArea(g2, fit);
+            }
             paintGuides(g2, fit);
         } finally {
             g2.dispose();
@@ -323,6 +351,15 @@ public class PreviewPanel extends JPanel {
         if (guideY) {
             g2.drawLine(fit.x, anchor.y, fit.x + fit.width, anchor.y);
         }
+    }
+
+    /** Zeichnet den Sicheren-Bereich als gestrichelten Rahmen. */
+    private void paintSafeArea(Graphics2D g2, Rectangle fit) {
+        Rectangle safe = PreviewGeometry.insetRect(fit, SAFE_AREA_MARGIN);
+        g2.setColor(new Color(255, 255, 255, 140));
+        g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
+                10f, new float[] {6f, 6f}, 0f));
+        g2.drawRect(safe.x, safe.y, safe.width, safe.height);
     }
 
     private void paintPlaceholder(Graphics2D g2) {
