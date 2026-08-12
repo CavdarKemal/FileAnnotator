@@ -38,6 +38,7 @@ public class BatchService {
 
     private final SaveService saveService;
     private final ExifService exifService;
+    private final IccProfileService iccService = new IccProfileService();
 
     public BatchService(SaveService saveService, ExifService exifService) {
         this.saveService = saveService;
@@ -92,6 +93,7 @@ public class BatchService {
                     BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style, logo);
                     outFile = saveService.save(stamped, image.getName());
                     exifService.copyExif(image, outFile);
+                    iccService.copyIccProfile(image, outFile);
                     saved.add(outFile);
                 }
             } catch (Exception ex) {

@@ -41,6 +41,7 @@ import de.hasil.pictree.service.AnnotationStore;
 import de.hasil.pictree.service.AppSettings;
 import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
+import de.hasil.pictree.service.IccProfileService;
 import de.hasil.pictree.service.ImageStampService;
 import de.hasil.pictree.service.ImageSupport;
 import de.hasil.pictree.service.PlaceholderResolver;
@@ -68,6 +69,7 @@ public class MainFrame extends JFrame {
     private final AppSettings settings;
     private final SaveService saveService;
     private final ExifService exifService = new ExifService();
+    private final IccProfileService iccService = new IccProfileService();
     private final BatchService batchService;
     private final AnnotationStore annotationStore = new AnnotationStore();
 
@@ -513,6 +515,7 @@ public class MainFrame extends JFrame {
             BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style, logoOverlay);
             File saved = saveService.save(stamped, original.getName());
             boolean exifCopied = exifService.copyExif(original, saved);
+            iccService.copyIccProfile(original, saved);
             statusLabel.setText("Gespeichert: " + saved.getAbsolutePath()
                     + (exifCopied ? " (EXIF übernommen)" : ""));
             JOptionPane.showMessageDialog(this,
