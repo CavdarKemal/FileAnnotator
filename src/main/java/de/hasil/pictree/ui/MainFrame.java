@@ -137,6 +137,7 @@ public class MainFrame extends JFrame {
         commentPanel.getBatchButton().addActionListener(e -> onBatch());
         previewPanel.setDragCommitListener(this::onEditCommitted);
         installUndoKeyBindings();
+        installFileDrop();
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -403,6 +404,43 @@ public class MainFrame extends JFrame {
             recordState();
             statusLabel.setText("Vorlage angewendet: " + name);
         });
+    }
+
+    /** Ermöglicht das Ziehen von Dateien/Ordnern aus dem Explorer ins Fenster. */
+    private void installFileDrop() {
+        new java.awt.dnd.DropTarget(this, java.awt.dnd.DnDConstants.ACTION_COPY,
+                new java.awt.dnd.DropTargetAdapter() {
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public void drop(java.awt.dnd.DropTargetDropEvent event) {
+                        try {
+                            event.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY);
+                            java.util.List<File> files = (java.util.List<File>) event.getTransferable()
+                                    .getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+                            File target = pickDropTarget(files);
+                            if (target != null) {
+                                treePanel.selectPath(target);
+                            }
+                            event.dropComplete(true);
+                        } catch (Exception ex) {
+                            LOG.log(Level.WARNING, "Drop fehlgeschlagen", ex);
+                            event.dropComplete(false);
+                        }
+                    }
+                });
+    }
+
+    /** Wählt das Ziel eines Drops: erste existierende Datei/erster Ordner, sonst {@code null}. */
+    static File pickDropTarget(java.util.List<File> files) {
+        if (files == null) {
+            return null;
+        }
+        for (File f : files) {
+            if (f != null && f.exists()) {
+                return f;
+            }
+        }
+        return null;
     }
 
     private void installUndoKeyBindings() {
