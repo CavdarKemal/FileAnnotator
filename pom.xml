@@ -40,6 +40,11 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!--
+          Hinweis: AssertJ-Swing (3.17.1) referenziert java.applet.Applet, das in
+          JDK 26 entfernt wurde (NoClassDefFoundError). Daher UI-Smoke-Test ohne
+          diese Abhängigkeit direkt auf dem EDT (siehe MainFrameUiSmokeTest).
+        -->
     </dependencies>
 
     <build>
