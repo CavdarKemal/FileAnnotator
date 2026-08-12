@@ -17,6 +17,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>6.1.3</junit.version>
         <commons.imaging.version>1.0.0-alpha6</commons.imaging.version>
+        <flatlaf.version>3.7.2</flatlaf.version>
         <main.class>de.hasil.pictree.App</main.class>
     </properties>
 
@@ -25,6 +26,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-imaging</artifactId>
             <version>${commons.imaging.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>${flatlaf.version}</version>
         </dependency>
 
         <dependency>

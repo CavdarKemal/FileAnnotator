@@ -12,11 +12,15 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
 import de.hasil.pictree.App;
@@ -90,6 +94,7 @@ public class MainFrame extends JFrame {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePanel, rightPanel);
         split.setDividerLocation(320);
         setContentPane(split);
+        setJMenuBar(buildMenuBar());
 
         treePanel.addFileSelectionListener(this::onSelectionChanged);
         commentPanel.addTextChangeListener(previewPanel::setOverlayText);
@@ -166,6 +171,24 @@ public class MainFrame extends JFrame {
             settings.setLastFolder(annotatedImage.getParentFile().getAbsolutePath());
         }
         settings.save();
+    }
+
+    private JMenuBar buildMenuBar() {
+        JMenuBar bar = new JMenuBar();
+        JMenu view = new JMenu("Ansicht");
+        JCheckBoxMenuItem darkItem = new JCheckBoxMenuItem("Dunkles Theme");
+        darkItem.setSelected(AppSettings.THEME_DARK.equals(settings.getTheme()));
+        darkItem.addActionListener(e -> toggleTheme(darkItem.isSelected()));
+        view.add(darkItem);
+        bar.add(view);
+        return bar;
+    }
+
+    private void toggleTheme(boolean dark) {
+        String theme = dark ? AppSettings.THEME_DARK : AppSettings.THEME_LIGHT;
+        Themes.apply(theme);
+        settings.setTheme(theme);
+        SwingUtilities.updateComponentTreeUI(this);
     }
 
     private void refreshPreviewStyle() {
