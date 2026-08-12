@@ -25,6 +25,7 @@ import javax.swing.KeyStroke;
 import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.ImageSupport;
+import de.hasil.pictree.service.Images;
 import de.hasil.pictree.service.LogoOverlayRenderer;
 import de.hasil.pictree.service.TextStampRenderer;
 
@@ -36,6 +37,10 @@ import de.hasil.pictree.service.TextStampRenderer;
 public class PreviewPanel extends JPanel {
 
     private BufferedImage image;
+    /** Herunterskalierte Fassung nur für die Vorschau (Performance bei großen Bildern). */
+    private BufferedImage previewImage;
+    /** Maximale Kantenlänge der Vorschau-Fassung. */
+    private static final int MAX_PREVIEW_DIMENSION = 1600;
     private File currentFile;
     private String overlayText = "";
     private StampStyle style = new StampStyle();
@@ -252,6 +257,9 @@ public class PreviewPanel extends JPanel {
     public void showFile(File file) {
         this.currentFile = file;
         this.image = ImageSupport.load(file);
+        // Für die Anzeige eine herunterskalierte Fassung nutzen; volle Auflösung
+        // bleibt in image (für Speichern/Batch) erhalten.
+        this.previewImage = Images.downscaleToMax(image, MAX_PREVIEW_DIMENSION);
         resetView();
         repaint();
     }
@@ -338,7 +346,8 @@ public class PreviewPanel extends JPanel {
 
             Rectangle fit = displayRect();
             lastImageRect = fit;
-            g2.drawImage(image, fit.x, fit.y, fit.width, fit.height, null);
+            BufferedImage toDraw = previewImage != null ? previewImage : image;
+            g2.drawImage(toDraw, fit.x, fit.y, fit.width, fit.height, null);
             if (showOverlay) {
                 LogoOverlayRenderer.draw(g2, logoOverlay, fit);
             }
