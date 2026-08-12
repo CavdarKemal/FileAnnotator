@@ -69,10 +69,30 @@ public final class TextStampRenderer {
         int x0 = -blockWidth / 2;
         int y0 = -blockHeight / 2;
         int outlinePx = Math.max(1, Math.round(fontSize * 0.06f));
+
+        // Halbtransparente Box/Banner hinter dem Text.
+        if (style.isBoxEnabled()) {
+            int pad = Math.max(2, Math.round(fontSize * 0.25f));
+            Color bc = style.getBoxColor();
+            int alpha = Math.round(style.getBoxOpacity() * 255);
+            g.setColor(new Color(bc.getRed(), bc.getGreen(), bc.getBlue(), alpha));
+            g.fillRoundRect(x0 - pad, y0 - pad, blockWidth + 2 * pad, blockHeight + 2 * pad,
+                    pad, pad);
+        }
+
+        int shadowOffset = style.getShadowStrength() > 0
+                ? Math.max(1, Math.round(fontSize * 0.10f * style.getShadowStrength()))
+                : 0;
+        int shadowAlpha = Math.round(200 * style.getShadowStrength());
+
         int baseline = y0 + fm.getAscent();
         for (String line : lines) {
             int lineWidth = fm.stringWidth(line);
             int lineX = x0 + (blockWidth - lineWidth) / 2;
+            if (shadowOffset > 0 && !line.isEmpty()) {
+                g.setColor(new Color(0, 0, 0, shadowAlpha));
+                g.drawString(line, lineX + shadowOffset, baseline + shadowOffset);
+            }
             if (style.isOutline() && !line.isEmpty()) {
                 g.setColor(contrastColor(style.getColor()));
                 for (int dx = -outlinePx; dx <= outlinePx; dx++) {

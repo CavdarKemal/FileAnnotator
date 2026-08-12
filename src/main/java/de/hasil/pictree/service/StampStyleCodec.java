@@ -26,6 +26,10 @@ public final class StampStyleCodec {
         p.setProperty(prefix + "outline", Boolean.toString(s.isOutline()));
         p.setProperty(prefix + "rotationDegrees", Double.toString(s.getRotationDegrees()));
         p.setProperty(prefix + "wrapWidthFraction", Double.toString(s.getWrapWidthFraction()));
+        p.setProperty(prefix + "boxEnabled", Boolean.toString(s.isBoxEnabled()));
+        p.setProperty(prefix + "boxColor", Integer.toString(s.getBoxColor().getRGB()));
+        p.setProperty(prefix + "boxOpacity", Float.toString(s.getBoxOpacity()));
+        p.setProperty(prefix + "shadowStrength", Float.toString(s.getShadowStrength()));
     }
 
     /** Liest einen Style unter {@code prefix}; fehlende Felder werden aus {@code fallback} übernommen. */
@@ -43,6 +47,11 @@ public final class StampStyleCodec {
                 p.getProperty(prefix + "outline", Boolean.toString(base.isOutline()))));
         s.setRotationDegrees(parseDouble(p, prefix + "rotationDegrees", base.getRotationDegrees()));
         s.setWrapWidthFraction(parseDouble(p, prefix + "wrapWidthFraction", base.getWrapWidthFraction()));
+        s.setBoxEnabled(Boolean.parseBoolean(
+                p.getProperty(prefix + "boxEnabled", Boolean.toString(base.isBoxEnabled()))));
+        s.setBoxColor(new java.awt.Color(parseInt(p, prefix + "boxColor", base.getBoxColor().getRGB()), true));
+        s.setBoxOpacity((float) parseDouble(p, prefix + "boxOpacity", base.getBoxOpacity()));
+        s.setShadowStrength((float) parseDouble(p, prefix + "shadowStrength", base.getShadowStrength()));
         return s;
     }
 

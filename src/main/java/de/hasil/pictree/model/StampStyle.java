@@ -38,6 +38,18 @@ public class StampStyle {
     /** Umbruchbreite als Bruchteil der Bildbreite (0 = kein automatischer Umbruch). */
     private double wrapWidthFraction = 0.0;
 
+    /** Halbtransparente Box/Banner hinter dem Text. */
+    private boolean boxEnabled = false;
+
+    /** Boxfarbe (Standard: schwarz). */
+    private Color boxColor = Color.BLACK;
+
+    /** Deckkraft der Box (0..1). */
+    private float boxOpacity = 0.45f;
+
+    /** Schlagschatten-Stärke (0 = aus .. 1 = stark). */
+    private float shadowStrength = 0.0f;
+
     public StampStyle() {
         // Standardwerte
     }
@@ -114,6 +126,38 @@ public class StampStyle {
         this.wrapWidthFraction = clamp01(wrapWidthFraction);
     }
 
+    public boolean isBoxEnabled() {
+        return boxEnabled;
+    }
+
+    public void setBoxEnabled(boolean boxEnabled) {
+        this.boxEnabled = boxEnabled;
+    }
+
+    public Color getBoxColor() {
+        return boxColor;
+    }
+
+    public void setBoxColor(Color boxColor) {
+        this.boxColor = boxColor;
+    }
+
+    public float getBoxOpacity() {
+        return boxOpacity;
+    }
+
+    public void setBoxOpacity(float boxOpacity) {
+        this.boxOpacity = (float) clamp01(boxOpacity);
+    }
+
+    public float getShadowStrength() {
+        return shadowStrength;
+    }
+
+    public void setShadowStrength(float shadowStrength) {
+        this.shadowStrength = (float) clamp01(shadowStrength);
+    }
+
     /** Übernimmt alle Werte aus {@code o} in dieses Objekt (In-Place). */
     public void copyFrom(StampStyle o) {
         if (o == null) {
@@ -128,6 +172,10 @@ public class StampStyle {
         this.outline = o.outline;
         this.rotationDegrees = o.rotationDegrees;
         this.wrapWidthFraction = o.wrapWidthFraction;
+        this.boxEnabled = o.boxEnabled;
+        this.boxColor = o.boxColor;
+        this.boxOpacity = o.boxOpacity;
+        this.shadowStrength = o.shadowStrength;
     }
 
     /** Tiefe Kopie dieses Stils. */
@@ -142,6 +190,10 @@ public class StampStyle {
         c.outline = this.outline;
         c.rotationDegrees = this.rotationDegrees;
         c.wrapWidthFraction = this.wrapWidthFraction;
+        c.boxEnabled = this.boxEnabled;
+        c.boxColor = this.boxColor;
+        c.boxOpacity = this.boxOpacity;
+        c.shadowStrength = this.shadowStrength;
         return c;
     }
 

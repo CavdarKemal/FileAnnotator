@@ -61,6 +61,7 @@ public class MainFrame extends JFrame {
     private final FileTreePanel treePanel;
     private final PreviewPanel previewPanel;
     private final StyleToolbar styleToolbar;
+    private final EffectsToolbar effectsToolbar;
     private final CommentPanel commentPanel;
     private final JLabel statusLabel;
     private final StampStyle style = new StampStyle();
@@ -106,13 +107,19 @@ public class MainFrame extends JFrame {
         commentPanel = new CommentPanel();
         statusLabel = new JLabel("Keine Datei ausgewählt.");
         styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
+        effectsToolbar = new EffectsToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
 
         JPanel southPanel = new JPanel(new BorderLayout());
         southPanel.add(commentPanel, BorderLayout.CENTER);
         southPanel.add(statusLabel, BorderLayout.SOUTH);
 
+        JPanel toolbars = new JPanel();
+        toolbars.setLayout(new javax.swing.BoxLayout(toolbars, javax.swing.BoxLayout.Y_AXIS));
+        toolbars.add(styleToolbar);
+        toolbars.add(effectsToolbar);
+
         JPanel rightPanel = new JPanel(new BorderLayout());
-        rightPanel.add(styleToolbar, BorderLayout.NORTH);
+        rightPanel.add(toolbars, BorderLayout.NORTH);
         rightPanel.add(previewPanel, BorderLayout.CENTER);
         rightPanel.add(southPanel, BorderLayout.SOUTH);
 
@@ -183,7 +190,7 @@ public class MainFrame extends JFrame {
         Optional<Annotation> loaded = annotationStore.load(image);
         if (loaded.isPresent()) {
             style.copyFrom(loaded.get().style());
-            styleToolbar.syncFromStyle();
+            syncToolbars();
             commentPanel.setText(loaded.get().comment());
         } else {
             // Kein Sidecar: Kommentar leeren, zuletzt genutzten Stil beibehalten.
@@ -370,7 +377,7 @@ public class MainFrame extends JFrame {
     private void applyPreset(String name) {
         presetStore.load(name).ifPresent(preset -> {
             style.copyFrom(preset);
-            styleToolbar.syncFromStyle();
+            syncToolbars();
             previewPanel.setStampStyle(style);
             recordState();
             statusLabel.setText("Vorlage angewendet: " + name);
@@ -441,7 +448,7 @@ public class MainFrame extends JFrame {
         restoring = true;
         try {
             style.copyFrom(state.style());
-            styleToolbar.syncFromStyle();
+            syncToolbars();
             commentPanel.setText(state.comment());
             previewPanel.setOverlayText(PlaceholderResolver.resolve(state.comment(), annotatedImage));
             previewPanel.setStampStyle(style);
@@ -487,6 +494,12 @@ public class MainFrame extends JFrame {
     private void refreshPreviewStyle() {
         // Style-Objekt ist geteilt; setStampStyle stößt nur das Repaint an.
         previewPanel.setStampStyle(style);
+    }
+
+    /** Aktualisiert beide Werkzeugleisten aus dem aktuellen Stil. */
+    private void syncToolbars() {
+        styleToolbar.syncFromStyle();
+        effectsToolbar.syncFromStyle();
     }
 
     private void onSave() {
