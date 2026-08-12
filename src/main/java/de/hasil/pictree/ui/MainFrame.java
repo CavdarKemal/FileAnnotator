@@ -11,9 +11,11 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
+import javax.swing.SwingWorker;
 
 import de.hasil.pictree.App;
 import de.hasil.pictree.model.StampStyle;
+import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
 import de.hasil.pictree.service.SaveService;
@@ -33,6 +35,9 @@ public class MainFrame extends JFrame {
     private final StampStyle style = new StampStyle();
     private final SaveService saveService = new SaveService();
     private final ExifService exifService = new ExifService();
+    private final BatchService batchService = new BatchService(saveService, exifService);
+
+    private File selectedFolder;
 
     public MainFrame() {
         super(App.APP_NAME);
@@ -63,10 +68,13 @@ public class MainFrame extends JFrame {
         treePanel.addFileSelectionListener(file -> {
             previewPanel.showFile(file);
             commentPanel.getSaveButton().setEnabled(previewPanel.hasImage());
+            selectedFolder = (file != null && file.isDirectory()) ? file : null;
+            commentPanel.getBatchButton().setEnabled(selectedFolder != null);
             statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath());
         });
         commentPanel.addTextChangeListener(previewPanel::setOverlayText);
         commentPanel.getSaveButton().addActionListener(e -> onSave());
+        commentPanel.getBatchButton().addActionListener(e -> onBatch());
     }
 
     private void refreshPreviewStyle() {
@@ -95,6 +103,64 @@ public class MainFrame extends JFrame {
                     "Speichern fehlgeschlagen:\n" + ex.getMessage(),
                     "Fehler", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void onBatch() {
+        if (selectedFolder == null) {
+            return;
+        }
+        int count = BatchService.listImages(selectedFolder).size();
+        if (count == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Im Ordner wurden keine Bilder gefunden:\n" + selectedFolder.getAbsolutePath(),
+                    "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int choice = JOptionPane.showConfirmDialog(this,
+                count + " Bild(er) in\n" + selectedFolder.getAbsolutePath()
+                        + "\nmit demselben Stempel versehen und speichern?",
+                "Stapelverarbeitung", JOptionPane.OK_CANCEL_OPTION);
+        if (choice != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        final File folder = selectedFolder;
+        final String text = commentPanel.getText();
+        final StampStyle snapshot = style.copy();
+        commentPanel.getBatchButton().setEnabled(false);
+
+        new SwingWorker<BatchService.BatchResult, String>() {
+            @Override
+            protected BatchService.BatchResult doInBackground() {
+                return batchService.processFolder(folder, text, snapshot, (done, total, current, saved) ->
+                        publish("Stapel: " + done + "/" + total + " – " + current.getName()));
+            }
+
+            @Override
+            protected void process(java.util.List<String> chunks) {
+                statusLabel.setText(chunks.get(chunks.size() - 1));
+            }
+
+            @Override
+            protected void done() {
+                commentPanel.getBatchButton().setEnabled(selectedFolder != null);
+                try {
+                    BatchService.BatchResult result = get();
+                    statusLabel.setText("Stapel fertig: " + result.saved().size() + " gespeichert, "
+                            + result.failed().size() + " fehlgeschlagen.");
+                    JOptionPane.showMessageDialog(MainFrame.this,
+                            "Stapelverarbeitung abgeschlossen.\n"
+                                    + result.saved().size() + " Bild(er) gespeichert nach:\n"
+                                    + saveService.getTargetDir() + "\n"
+                                    + result.failed().size() + " fehlgeschlagen.",
+                            "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(MainFrame.this,
+                            "Stapelverarbeitung fehlgeschlagen:\n" + ex.getMessage(),
+                            "Fehler", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
     }
 
     public FileTreePanel getTreePanel() {
