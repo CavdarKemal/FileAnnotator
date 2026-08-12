@@ -8,6 +8,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -24,6 +26,7 @@ import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
 import de.hasil.pictree.service.SaveService;
+import de.hasil.pictree.util.Logging;
 
 /**
  * Hauptfenster: links der Datei-Baum, rechts Werkzeugleiste, Bildvorschau und
@@ -31,6 +34,8 @@ import de.hasil.pictree.service.SaveService;
  * Vorschau (Live-Preview).
  */
 public class MainFrame extends JFrame {
+
+    private static final Logger LOG = Logging.get(MainFrame.class);
 
     private final FileTreePanel treePanel;
     private final PreviewPanel previewPanel;
@@ -133,7 +138,7 @@ public class MainFrame extends JFrame {
                 annotationStore.save(annotatedImage, comment, style);
             }
         } catch (IOException ex) {
-            System.err.println("Annotation konnte nicht gespeichert werden: " + ex.getMessage());
+            LOG.log(Level.WARNING, "Annotation konnte nicht gespeichert werden", ex);
         }
     }
 

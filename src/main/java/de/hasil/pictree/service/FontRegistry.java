@@ -4,6 +4,10 @@ import java.awt.Font;
 import java.awt.GraphicsEnvironment;
 import java.io.InputStream;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import de.hasil.pictree.util.Logging;
 
 /**
  * Zentrale Font-Auflösung. Registriert beim Laden die gebündelte Roboto-Schrift
@@ -20,6 +24,7 @@ public final class FontRegistry {
     public static final List<String> AVAILABLE_FAMILIES =
             List.of(ROBOTO, "SansSerif", "Serif", "Monospaced");
 
+    private static final Logger LOG = Logging.get(FontRegistry.class);
     private static final Font ROBOTO_BASE = loadRoboto();
 
     private FontRegistry() {
@@ -39,7 +44,7 @@ public final class FontRegistry {
             }
             return font;
         } catch (Exception ex) {
-            System.err.println("Roboto konnte nicht geladen werden: " + ex.getMessage());
+            LOG.log(Level.WARNING, "Roboto konnte nicht geladen werden: {0}", ex.getMessage());
             return null;
         }
     }

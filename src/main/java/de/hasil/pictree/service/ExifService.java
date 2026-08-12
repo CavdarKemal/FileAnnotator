@@ -6,7 +6,10 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import de.hasil.pictree.util.Logging;
 import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.common.ImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
@@ -23,6 +26,8 @@ import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
  * JPEG ohne Metadaten), passiert nichts und es wird {@code false} gemeldet.
  */
 public class ExifService {
+
+    private static final Logger LOG = Logging.get(ExifService.class);
 
     /**
      * Kopiert die EXIF-Daten von {@code source} nach {@code target} (JPEG,
@@ -45,8 +50,7 @@ public class ExifService {
             Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (Exception ex) {
-            System.err.println("EXIF-Kopie fehlgeschlagen (" + source + " -> " + target + "): "
-                    + ex.getMessage());
+            LOG.log(Level.WARNING, "EXIF-Kopie fehlgeschlagen (" + source + " -> " + target + ")", ex);
             return false;
         }
     }

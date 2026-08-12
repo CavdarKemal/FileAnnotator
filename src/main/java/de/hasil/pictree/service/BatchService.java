@@ -6,8 +6,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import de.hasil.pictree.model.StampStyle;
+import de.hasil.pictree.util.Logging;
 
 /**
  * Stapelverarbeitung: wendet denselben Text-Stempel (mit relativer Position und
@@ -29,6 +32,8 @@ public class BatchService {
     public interface ProgressCallback {
         void onProgress(int done, int total, File current, File savedOrNull);
     }
+
+    private static final Logger LOG = Logging.get(BatchService.class);
 
     private final SaveService saveService;
     private final ExifService exifService;
@@ -82,7 +87,7 @@ public class BatchService {
                 }
             } catch (Exception ex) {
                 failed.add(image);
-                System.err.println("Batch: Fehler bei " + image + ": " + ex.getMessage());
+                LOG.log(Level.WARNING, "Batch: Fehler bei " + image, ex);
             }
             if (cb != null) {
                 cb.onProgress(done, total, image, outFile);
