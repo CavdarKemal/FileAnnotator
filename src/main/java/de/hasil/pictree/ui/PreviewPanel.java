@@ -12,6 +12,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -52,6 +53,18 @@ public class PreviewPanel extends JPanel {
     private boolean guideX;
     private boolean guideY;
 
+    /** Zoom (1.0 = eingepasst) und Pan-Versatz in Panel-Pixeln. */
+    private static final double MIN_ZOOM = 1.0;
+    private static final double MAX_ZOOM = 8.0;
+    private double zoom = 1.0;
+    private int panX;
+    private int panY;
+    private boolean panning;
+    private int panStartX;
+    private int panStartY;
+    private int panOrigX;
+    private int panOrigY;
+
     public PreviewPanel() {
         setBackground(new Color(40, 40, 40));
         setFocusable(true);
@@ -59,11 +72,43 @@ public class PreviewPanel extends JPanel {
         installKeyBindings();
     }
 
+    /** Basis-Einpassrechteck (Zoom 1, kein Pan). */
+    private Rectangle baseFitRect() {
+        if (image == null) {
+            return new Rectangle(0, 0, 0, 0);
+        }
+        return PreviewGeometry.computeFitRect(image.getWidth(), image.getHeight(), getWidth(), getHeight());
+    }
+
+    /** Aktuell dargestelltes Bildrechteck (mit Zoom und Pan). */
+    private Rectangle displayRect() {
+        return PreviewGeometry.zoomedRect(baseFitRect(), zoom, panX, panY);
+    }
+
+    private void resetView() {
+        zoom = 1.0;
+        panX = 0;
+        panY = 0;
+    }
+
     private void installDragHandlers() {
         MouseAdapter handler = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 requestFocusInWindow();
+                // Mittlere/rechte Maustaste (oder Strg+links) verschiebt die Ansicht (Pan).
+                boolean panButton = e.getButton() == MouseEvent.BUTTON2
+                        || e.getButton() == MouseEvent.BUTTON3
+                        || (e.getButton() == MouseEvent.BUTTON1 && e.isControlDown());
+                if (panButton && hasImage() && zoom > MIN_ZOOM) {
+                    panning = true;
+                    panStartX = e.getX();
+                    panStartY = e.getY();
+                    panOrigX = panX;
+                    panOrigY = panY;
+                    setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+                    return;
+                }
                 if (hasImage() && TextDragModel.hitTest(e.getPoint(), lastTextRect, DRAG_PADDING)) {
                     drag.begin(e.getPoint(), style.getRelX(), style.getRelY(), lastImageRect);
                     setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
@@ -72,6 +117,12 @@ public class PreviewPanel extends JPanel {
 
             @Override
             public void mouseDragged(MouseEvent e) {
+                if (panning) {
+                    panX = panOrigX + (e.getX() - panStartX);
+                    panY = panOrigY + (e.getY() - panStartY);
+                    repaint();
+                    return;
+                }
                 if (drag.isDragging()) {
                     Point2D.Double rel = drag.update(e.getPoint(), lastImageRect);
                     Snapping.Snap sx = Snapping.snap(rel.x);
@@ -86,6 +137,11 @@ public class PreviewPanel extends JPanel {
 
             @Override
             public void mouseReleased(MouseEvent e) {
+                if (panning) {
+                    panning = false;
+                    updateCursor(e.getPoint());
+                    return;
+                }
                 boolean wasDragging = drag.isDragging();
                 drag.end();
                 guideX = false;
@@ -101,9 +157,47 @@ public class PreviewPanel extends JPanel {
             public void mouseMoved(MouseEvent e) {
                 updateCursor(e.getPoint());
             }
+
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
+                if (hasImage()) {
+                    zoomAt(e.getPoint(), e.getPreciseWheelRotation() < 0 ? 1.15 : 1 / 1.15);
+                }
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && e.getButton() == MouseEvent.BUTTON1) {
+                    resetView(); // Doppelklick: Ansicht zurücksetzen (einpassen)
+                    repaint();
+                }
+            }
         };
         addMouseListener(handler);
         addMouseMotionListener(handler);
+        addMouseWheelListener(handler);
+    }
+
+    /** Zoomt um den Faktor {@code factor} und hält den Punkt unter dem Cursor stabil. */
+    private void zoomAt(Point cursor, double factor) {
+        Rectangle before = displayRect();
+        double fx = before.width > 0 ? (cursor.x - before.x) / (double) before.width : 0.5;
+        double fy = before.height > 0 ? (cursor.y - before.y) / (double) before.height : 0.5;
+
+        double newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * factor));
+        if (newZoom == zoom) {
+            return;
+        }
+        zoom = newZoom;
+        if (zoom <= MIN_ZOOM + 1e-9) {
+            panX = 0;
+            panY = 0;
+        } else {
+            int[] pan = PreviewGeometry.panForZoomAbout(baseFitRect(), zoom, cursor.x, cursor.y, fx, fy);
+            panX = pan[0];
+            panY = pan[1];
+        }
+        repaint();
     }
 
     private void updateCursor(Point p) {
@@ -150,6 +244,7 @@ public class PreviewPanel extends JPanel {
     public void showFile(File file) {
         this.currentFile = file;
         this.image = ImageSupport.load(file);
+        resetView();
         repaint();
     }
 
@@ -204,8 +299,7 @@ public class PreviewPanel extends JPanel {
                 return;
             }
 
-            Rectangle fit = PreviewGeometry.computeFitRect(
-                    image.getWidth(), image.getHeight(), getWidth(), getHeight());
+            Rectangle fit = displayRect();
             lastImageRect = fit;
             g2.drawImage(image, fit.x, fit.y, fit.width, fit.height, null);
             lastTextRect = TextStampRenderer.drawStamp(g2, overlayText, style, fit);

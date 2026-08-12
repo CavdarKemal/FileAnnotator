@@ -59,4 +59,39 @@ class PreviewGeometryTest {
         assertEquals(0.0, rel.x, 1e-9);
         assertEquals(1.0, rel.y, 1e-9);
     }
+
+    @Test
+    void zoomedRectAtZoomOneEqualsBase() {
+        Rectangle base = new Rectangle(10, 20, 100, 80);
+        assertEquals(base, PreviewGeometry.zoomedRect(base, 1.0, 0, 0));
+    }
+
+    @Test
+    void zoomedRectScalesAndCenters() {
+        Rectangle base = new Rectangle(0, 0, 100, 100);
+        Rectangle z = PreviewGeometry.zoomedRect(base, 2.0, 0, 0);
+        assertEquals(200, z.width);
+        assertEquals(200, z.height);
+        assertEquals(-50, z.x); // zentriert: (100-200)/2
+        assertEquals(-50, z.y);
+    }
+
+    @Test
+    void panForZoomAboutKeepsCursorPointStable() {
+        Rectangle base = new Rectangle(0, 0, 100, 100);
+        // Cursor links oben (fx=fy=0), Zoom 2x: der Punkt soll unter (0,0) bleiben.
+        int[] pan = PreviewGeometry.panForZoomAbout(base, 2.0, 0, 0, 0.0, 0.0);
+        Rectangle z = PreviewGeometry.zoomedRect(base, 2.0, pan[0], pan[1]);
+        // Bildpunkt (fx=0) liegt bei z.x -> muss wieder 0 sein.
+        assertEquals(0, z.x);
+        assertEquals(0, z.y);
+    }
+
+    @Test
+    void panForZoomAboutCenterNeedsNoPan() {
+        Rectangle base = new Rectangle(0, 0, 100, 100);
+        int[] pan = PreviewGeometry.panForZoomAbout(base, 2.0, 50, 50, 0.5, 0.5);
+        assertEquals(0, pan[0]);
+        assertEquals(0, pan[1]);
+    }
 }

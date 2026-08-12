@@ -51,6 +51,33 @@ public final class PreviewGeometry {
         return new Point(x, y);
     }
 
+    /**
+     * Skaliert ein Basis-Einpassrechteck um {@code zoom} (zentriert) und
+     * verschiebt es um {@code panX}/{@code panY}.
+     */
+    public static Rectangle zoomedRect(Rectangle base, double zoom, int panX, int panY) {
+        int w = Math.max(1, (int) Math.round(base.width * zoom));
+        int h = Math.max(1, (int) Math.round(base.height * zoom));
+        int x = base.x + (base.width - w) / 2 + panX;
+        int y = base.y + (base.height - h) / 2 + panY;
+        return new Rectangle(x, y, w, h);
+    }
+
+    /**
+     * Berechnet den Pan-Versatz, sodass der Bildpunkt mit relativer Position
+     * ({@code fx},{@code fy}) nach dem Zoomen unter dem Cursor bleibt.
+     *
+     * @return {@code [panX, panY]}
+     */
+    public static int[] panForZoomAbout(Rectangle base, double zoom, int cursorX, int cursorY,
+            double fx, double fy) {
+        int w = Math.max(1, (int) Math.round(base.width * zoom));
+        int h = Math.max(1, (int) Math.round(base.height * zoom));
+        int panX = cursorX - (int) Math.round(fx * w) - base.x - (base.width - w) / 2;
+        int panY = cursorY - (int) Math.round(fy * h) - base.y - (base.height - h) / 2;
+        return new int[] {panX, panY};
+    }
+
     private static double clamp01(double v) {
         if (v < 0) {
             return 0;
