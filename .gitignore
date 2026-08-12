@@ -1,0 +1,14 @@
+target/
+*.class
+dependency-reduced-pom.xml
+
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# OS
+Thumbs.db
+.DS_Store
