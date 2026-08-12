@@ -7,17 +7,17 @@ import javax.swing.JLabel;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
-import javax.swing.SwingConstants;
 
 import de.hasil.pictree.App;
 
 /**
- * Hauptfenster: links der Datei-Baum, rechts (vorerst) ein Platzhalter für
- * Vorschau und Werkzeuge.
+ * Hauptfenster: links der Datei-Baum, rechts die Bildvorschau (weitere Werkzeuge
+ * folgen in den nächsten Schritten).
  */
 public class MainFrame extends JFrame {
 
     private final FileTreePanel treePanel;
+    private final PreviewPanel previewPanel;
     private final JLabel statusLabel;
 
     public MainFrame() {
@@ -27,20 +27,28 @@ public class MainFrame extends JFrame {
         setLocationByPlatform(true);
 
         treePanel = new FileTreePanel();
-        statusLabel = new JLabel("Keine Datei ausgewählt.", SwingConstants.CENTER);
+        previewPanel = new PreviewPanel();
+        statusLabel = new JLabel("Keine Datei ausgewählt.");
 
         JPanel rightPanel = new JPanel(new BorderLayout());
-        rightPanel.add(statusLabel, BorderLayout.CENTER);
+        rightPanel.add(previewPanel, BorderLayout.CENTER);
+        rightPanel.add(statusLabel, BorderLayout.SOUTH);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePanel, rightPanel);
         split.setDividerLocation(320);
         setContentPane(split);
 
-        treePanel.addFileSelectionListener(file ->
-                statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath()));
+        treePanel.addFileSelectionListener(file -> {
+            previewPanel.showFile(file);
+            statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath());
+        });
     }
 
     public FileTreePanel getTreePanel() {
         return treePanel;
+    }
+
+    public PreviewPanel getPreviewPanel() {
+        return previewPanel;
     }
 }
