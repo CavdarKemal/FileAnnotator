@@ -574,12 +574,7 @@ public class MainFrame extends JFrame {
                     BatchService.BatchResult result = get();
                     statusLabel.setText("Stapel fertig: " + result.saved().size() + " gespeichert, "
                             + result.failed().size() + " fehlgeschlagen.");
-                    JOptionPane.showMessageDialog(MainFrame.this,
-                            "Stapelverarbeitung abgeschlossen.\n"
-                                    + result.saved().size() + " Bild(er) gespeichert nach:\n"
-                                    + saveService.getTargetDir() + "\n"
-                                    + result.failed().size() + " fehlgeschlagen.",
-                            "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
+                    showBatchResult(result);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(MainFrame.this,
                             "Stapelverarbeitung fehlgeschlagen:\n" + ex.getMessage(),
@@ -587,6 +582,28 @@ public class MainFrame extends JFrame {
                 }
             }
         }.execute();
+    }
+
+    /** Zeigt das Batch-Ergebnis; bei Fehlern mit scrollbarer Detailliste. */
+    private void showBatchResult(BatchService.BatchResult result) {
+        String header = "Stapelverarbeitung abgeschlossen.\n"
+                + result.saved().size() + " Bild(er) gespeichert nach:\n"
+                + saveService.getTargetDir() + "\n"
+                + result.failed().size() + " fehlgeschlagen.";
+        if (result.failed().isEmpty()) {
+            JOptionPane.showMessageDialog(this, header, "Stapelverarbeitung",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        StringBuilder details = new StringBuilder(header).append("\n\nFehler:\n");
+        for (BatchService.Failure f : result.failed()) {
+            details.append("• ").append(f.file().getName()).append(": ").append(f.reason()).append('\n');
+        }
+        javax.swing.JTextArea area = new javax.swing.JTextArea(details.toString(), 14, 48);
+        area.setEditable(false);
+        area.setCaretPosition(0);
+        JOptionPane.showMessageDialog(this, new javax.swing.JScrollPane(area),
+                "Stapelverarbeitung – Fehlerreport", JOptionPane.WARNING_MESSAGE);
     }
 
     public FileTreePanel getTreePanel() {

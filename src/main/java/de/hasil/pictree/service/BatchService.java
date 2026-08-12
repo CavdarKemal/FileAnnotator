@@ -21,8 +21,12 @@ import de.hasil.pictree.util.Logging;
  */
 public class BatchService {
 
+    /** Ein fehlgeschlagenes Bild mit Begründung. */
+    public record Failure(File file, String reason) {
+    }
+
     /** Ergebnis eines Stapellaufs. */
-    public record BatchResult(List<File> saved, List<File> failed) {
+    public record BatchResult(List<File> saved, List<Failure> failed) {
         public int total() {
             return saved.size() + failed.size();
         }
@@ -76,7 +80,7 @@ public class BatchService {
             ProgressCallback cb) {
         List<File> images = listImages(folder);
         List<File> saved = new ArrayList<>();
-        List<File> failed = new ArrayList<>();
+        List<Failure> failed = new ArrayList<>();
 
         int total = images.size();
         int done = 0;
@@ -86,7 +90,7 @@ public class BatchService {
             try {
                 BufferedImage src = ImageSupport.load(image);
                 if (src == null) {
-                    failed.add(image);
+                    failed.add(new Failure(image, "Bild konnte nicht geladen werden"));
                 } else {
                     // Platzhalter je Bild auflösen (z. B. {datum}, {dateiname}).
                     String resolved = PlaceholderResolver.resolve(text, image);
@@ -97,7 +101,8 @@ public class BatchService {
                     saved.add(outFile);
                 }
             } catch (Exception ex) {
-                failed.add(image);
+                String reason = ex.getMessage() == null ? ex.toString() : ex.getMessage();
+                failed.add(new Failure(image, reason));
                 LOG.log(Level.WARNING, "Batch: Fehler bei " + image, ex);
             }
             if (cb != null) {

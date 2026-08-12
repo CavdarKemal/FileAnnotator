@@ -1,6 +1,7 @@
 package de.hasil.pictree.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.image.BufferedImage;
@@ -63,6 +64,8 @@ class BatchServiceTest {
         assertEquals(1, result.failed().size());
         assertEquals(4, result.total());
         assertEquals(4, progressCalls.get());
+        // Fehlgeschlagenes Bild trägt eine Begründung.
+        assertFalse(result.failed().get(0).reason().isBlank());
 
         for (File out : result.saved()) {
             assertTrue(out.exists());
