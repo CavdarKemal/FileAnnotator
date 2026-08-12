@@ -6,27 +6,36 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
+import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 
 /**
- * Rendert einen Text-Stempel auf eine <b>Kopie</b> des Bildes in voller
- * Auflösung. Das Originalbild wird nie verändert. Verwendet dieselbe
- * {@link TextStampRenderer}-Logik wie die Vorschau (WYSIWYG).
+ * Rendert einen Text-Stempel (und optional ein Logo-Overlay) auf eine
+ * <b>Kopie</b> des Bildes in voller Auflösung. Das Originalbild wird nie
+ * verändert. Verwendet dieselbe {@link TextStampRenderer}-Logik wie die
+ * Vorschau (WYSIWYG).
  */
 public final class ImageStampService {
 
     private ImageStampService() {
     }
 
+    /** Ohne Logo-Overlay. */
+    public static BufferedImage renderStamp(BufferedImage source, String text, StampStyle style) {
+        return renderStamp(source, text, style, null);
+    }
+
     /**
-     * Erzeugt eine neue, mit Text bestempelte RGB-Kopie des Quellbildes.
+     * Erzeugt eine neue, mit Logo und Text versehene RGB-Kopie des Quellbildes.
      *
      * @param source Quellbild (unverändert)
-     * @param text   Stempeltext (leer/null => unveränderte Kopie)
+     * @param text   Stempeltext (leer/null => kein Text)
      * @param style  Stil und relative Position
+     * @param logo   optionales Logo-Overlay (darf {@code null} sein)
      * @return neue {@link BufferedImage}-Instanz (TYPE_INT_RGB)
      */
-    public static BufferedImage renderStamp(BufferedImage source, String text, StampStyle style) {
+    public static BufferedImage renderStamp(BufferedImage source, String text, StampStyle style,
+            LogoOverlay logo) {
         int w = source.getWidth();
         int h = source.getHeight();
         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
@@ -39,7 +48,9 @@ public final class ImageStampService {
             g.setColor(Color.WHITE);
             g.fillRect(0, 0, w, h);
             g.drawImage(source, 0, 0, null);
-            TextStampRenderer.drawStamp(g, text, style, new Rectangle(0, 0, w, h));
+            Rectangle area = new Rectangle(0, 0, w, h);
+            LogoOverlayRenderer.draw(g, logo, area);
+            TextStampRenderer.drawStamp(g, text, style, area);
         } finally {
             g.dispose();
         }

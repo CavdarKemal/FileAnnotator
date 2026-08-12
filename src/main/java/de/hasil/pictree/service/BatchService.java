@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.util.Logging;
 
@@ -66,6 +67,12 @@ public class BatchService {
      * @param cb     optionaler Fortschritts-Callback (darf {@code null} sein)
      */
     public BatchResult processFolder(File folder, String text, StampStyle style, ProgressCallback cb) {
+        return processFolder(folder, text, style, null, cb);
+    }
+
+    /** Wie oben, zusätzlich mit optionalem Logo-Overlay. */
+    public BatchResult processFolder(File folder, String text, StampStyle style, LogoOverlay logo,
+            ProgressCallback cb) {
         List<File> images = listImages(folder);
         List<File> saved = new ArrayList<>();
         List<File> failed = new ArrayList<>();
@@ -82,7 +89,7 @@ public class BatchService {
                 } else {
                     // Platzhalter je Bild auflösen (z. B. {datum}, {dateiname}).
                     String resolved = PlaceholderResolver.resolve(text, image);
-                    BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style);
+                    BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style, logo);
                     outFile = saveService.save(stamped, image.getName());
                     exifService.copyExif(image, outFile);
                     saved.add(outFile);

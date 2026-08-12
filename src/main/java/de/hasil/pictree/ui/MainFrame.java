@@ -35,12 +35,14 @@ import javax.swing.SwingWorker;
 import de.hasil.pictree.App;
 import de.hasil.pictree.model.Annotation;
 import de.hasil.pictree.model.EditState;
+import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.AnnotationStore;
 import de.hasil.pictree.service.AppSettings;
 import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
+import de.hasil.pictree.service.ImageSupport;
 import de.hasil.pictree.service.PlaceholderResolver;
 import de.hasil.pictree.service.PresetStore;
 import de.hasil.pictree.service.SaveService;
@@ -75,6 +77,7 @@ public class MainFrame extends JFrame {
     private final JMenu presetMenu = new JMenu("Vorlagen");
     private final PresetStore presetStore = new PresetStore();
 
+    private LogoOverlay logoOverlay;
     private final UndoHistory<EditState> history = new UndoHistory<>();
     /** True, während ein Zustand wiederhergestellt wird (verhindert Neuaufzeichnung). */
     private boolean restoring;
@@ -254,7 +257,75 @@ public class MainFrame extends JFrame {
 
         updatePresetMenu();
         bar.add(presetMenu);
+
+        bar.add(buildLogoMenu());
         return bar;
+    }
+
+    private JMenu buildLogoMenu() {
+        JMenu logo = new JMenu("Logo");
+        JMenuItem choose = new JMenuItem("Logo wählen…");
+        choose.addActionListener(e -> onChooseLogo());
+        logo.add(choose);
+        JMenuItem remove = new JMenuItem("Logo entfernen");
+        remove.addActionListener(e -> {
+            logoOverlay = null;
+            previewPanel.setLogoOverlay(null);
+        });
+        logo.add(remove);
+
+        JMenu position = new JMenu("Position");
+        addLogoPosition(position, "Oben links", 0.15, 0.15);
+        addLogoPosition(position, "Oben rechts", 0.85, 0.15);
+        addLogoPosition(position, "Mitte", 0.5, 0.5);
+        addLogoPosition(position, "Unten links", 0.15, 0.85);
+        addLogoPosition(position, "Unten rechts", 0.85, 0.85);
+        logo.add(position);
+
+        JMenu opacity = new JMenu("Deckkraft");
+        for (int pct : new int[] {25, 50, 75, 100}) {
+            JMenuItem item = new JMenuItem(pct + " %");
+            float value = pct / 100f;
+            item.addActionListener(e -> {
+                if (logoOverlay != null) {
+                    logoOverlay.setOpacity(value);
+                    previewPanel.repaint();
+                }
+            });
+            opacity.add(item);
+        }
+        logo.add(opacity);
+        return logo;
+    }
+
+    private void addLogoPosition(JMenu menu, String label, double rx, double ry) {
+        JMenuItem item = new JMenuItem(label);
+        item.addActionListener(e -> {
+            if (logoOverlay != null) {
+                logoOverlay.setRelX(rx);
+                logoOverlay.setRelY(ry);
+                previewPanel.repaint();
+            }
+        });
+        menu.add(item);
+    }
+
+    private void onChooseLogo() {
+        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+        chooser.setDialogTitle("Logo-/Wasserzeichen-Bild wählen");
+        if (chooser.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File file = chooser.getSelectedFile();
+        BufferedImage img = ImageSupport.load(file);
+        if (img == null) {
+            JOptionPane.showMessageDialog(this, "Bild konnte nicht geladen werden:\n" + file,
+                    "Fehler", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        logoOverlay = new LogoOverlay(file, img);
+        previewPanel.setLogoOverlay(logoOverlay);
+        statusLabel.setText("Logo gesetzt: " + file.getName());
     }
 
     /** Baut das "Vorlagen"-Menü neu auf (Speichern + Liste + Löschen). */
@@ -426,7 +497,7 @@ public class MainFrame extends JFrame {
         }
         try {
             String resolved = PlaceholderResolver.resolve(commentPanel.getText(), original);
-            BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style);
+            BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style, logoOverlay);
             File saved = saveService.save(stamped, original.getName());
             boolean exifCopied = exifService.copyExif(original, saved);
             statusLabel.setText("Gespeichert: " + saved.getAbsolutePath()
@@ -464,12 +535,14 @@ public class MainFrame extends JFrame {
         final File folder = selectedFolder;
         final String text = commentPanel.getText();
         final StampStyle snapshot = style.copy();
+        final LogoOverlay logoSnapshot = logoOverlay;
         commentPanel.getBatchButton().setEnabled(false);
 
         new SwingWorker<BatchService.BatchResult, String>() {
             @Override
             protected BatchService.BatchResult doInBackground() {
-                return batchService.processFolder(folder, text, snapshot, (done, total, current, saved) ->
+                return batchService.processFolder(folder, text, snapshot, logoSnapshot,
+                        (done, total, current, saved) ->
                         publish("Stapel: " + done + "/" + total + " – " + current.getName()));
             }
 

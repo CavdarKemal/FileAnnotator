@@ -22,8 +22,10 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 
+import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.ImageSupport;
+import de.hasil.pictree.service.LogoOverlayRenderer;
 import de.hasil.pictree.service.TextStampRenderer;
 
 /**
@@ -37,6 +39,7 @@ public class PreviewPanel extends JPanel {
     private File currentFile;
     private String overlayText = "";
     private StampStyle style = new StampStyle();
+    private LogoOverlay logoOverlay;
 
     /** Zuletzt gezeichnetes Bildrechteck (Panel-Koordinaten) – Basis für Drag. */
     private Rectangle lastImageRect = new Rectangle(0, 0, 0, 0);
@@ -288,6 +291,15 @@ public class PreviewPanel extends JPanel {
         repaint();
     }
 
+    public void setLogoOverlay(LogoOverlay overlay) {
+        this.logoOverlay = overlay;
+        repaint();
+    }
+
+    public LogoOverlay getLogoOverlay() {
+        return logoOverlay;
+    }
+
     public StampStyle getStampStyle() {
         return style;
     }
@@ -327,6 +339,9 @@ public class PreviewPanel extends JPanel {
             Rectangle fit = displayRect();
             lastImageRect = fit;
             g2.drawImage(image, fit.x, fit.y, fit.width, fit.height, null);
+            if (showOverlay) {
+                LogoOverlayRenderer.draw(g2, logoOverlay, fit);
+            }
             lastTextRect = showOverlay ? TextStampRenderer.drawStamp(g2, overlayText, style, fit) : null;
             if (showSafeArea) {
                 paintSafeArea(g2, fit);
