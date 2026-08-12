@@ -41,6 +41,7 @@ import de.hasil.pictree.service.AppSettings;
 import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
+import de.hasil.pictree.service.PresetStore;
 import de.hasil.pictree.service.SaveService;
 import de.hasil.pictree.util.Logging;
 import de.hasil.pictree.util.UndoHistory;
@@ -70,6 +71,8 @@ public class MainFrame extends JFrame {
     /** Aktuell angezeigtes Bild, dessen Annotation bearbeitet wird (oder null). */
     private File annotatedImage;
     private final JMenu recentMenu = new JMenu("Zuletzt verwendet");
+    private final JMenu presetMenu = new JMenu("Vorlagen");
+    private final PresetStore presetStore = new PresetStore();
 
     private final UndoHistory<EditState> history = new UndoHistory<>();
     /** True, während ein Zustand wiederhergestellt wird (verhindert Neuaufzeichnung). */
@@ -247,7 +250,59 @@ public class MainFrame extends JFrame {
         view.add(safeAreaItem);
 
         bar.add(view);
+
+        updatePresetMenu();
+        bar.add(presetMenu);
         return bar;
+    }
+
+    /** Baut das "Vorlagen"-Menü neu auf (Speichern + Liste + Löschen). */
+    private void updatePresetMenu() {
+        presetMenu.removeAll();
+        JMenuItem saveAs = new JMenuItem("Als Vorlage speichern…");
+        saveAs.addActionListener(e -> onSavePreset());
+        presetMenu.add(saveAs);
+
+        List<String> names = presetStore.names();
+        if (!names.isEmpty()) {
+            presetMenu.addSeparator();
+            for (String name : names) {
+                JMenuItem item = new JMenuItem(name);
+                item.addActionListener(e -> applyPreset(name));
+                presetMenu.add(item);
+            }
+            JMenu deleteMenu = new JMenu("Löschen");
+            for (String name : names) {
+                JMenuItem del = new JMenuItem(name);
+                del.addActionListener(e -> {
+                    presetStore.delete(name);
+                    updatePresetMenu();
+                });
+                deleteMenu.add(del);
+            }
+            presetMenu.addSeparator();
+            presetMenu.add(deleteMenu);
+        }
+    }
+
+    private void onSavePreset() {
+        String name = JOptionPane.showInputDialog(this, "Name der Vorlage:", "Vorlage speichern",
+                JOptionPane.PLAIN_MESSAGE);
+        if (name != null && !name.isBlank()) {
+            presetStore.save(name.trim(), style.copy());
+            updatePresetMenu();
+            statusLabel.setText("Vorlage gespeichert: " + name.trim());
+        }
+    }
+
+    private void applyPreset(String name) {
+        presetStore.load(name).ifPresent(preset -> {
+            style.copyFrom(preset);
+            styleToolbar.syncFromStyle();
+            previewPanel.setStampStyle(style);
+            recordState();
+            statusLabel.setText("Vorlage angewendet: " + name);
+        });
     }
 
     private void installUndoKeyBindings() {
