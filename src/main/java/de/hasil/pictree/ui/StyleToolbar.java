@@ -29,6 +29,7 @@ public class StyleToolbar extends JToolBar {
 
     private final StampStyle style;
     private final Runnable onChange;
+    private final Runnable onCommit;
 
     private final JButton colorButton = new JButton("Farbe");
     private final JComboBox<String> fontBox =
@@ -40,8 +41,17 @@ public class StyleToolbar extends JToolBar {
     private boolean syncing;
 
     public StyleToolbar(StampStyle style, Runnable onChange) {
+        this(style, onChange, onChange);
+    }
+
+    /**
+     * @param onChange wird bei jeder (auch laufenden) Änderung aufgerufen – Live-Preview
+     * @param onCommit wird beim Abschluss einer Änderung aufgerufen – z. B. Undo-Schritt
+     */
+    public StyleToolbar(StampStyle style, Runnable onChange, Runnable onCommit) {
         this.style = style;
         this.onChange = onChange == null ? () -> { } : onChange;
+        this.onCommit = onCommit == null ? () -> { } : onCommit;
         setFloatable(false);
         buildComponents();
         syncFromStyle();
@@ -63,6 +73,7 @@ public class StyleToolbar extends JToolBar {
             }
             style.setFontFamily((String) fontBox.getSelectedItem());
             onChange.run();
+            onCommit.run();
         });
         add(fontBox);
         addSeparator();
@@ -76,6 +87,7 @@ public class StyleToolbar extends JToolBar {
             }
             style.setFontStyle(boldToggle.isSelected() ? Font.BOLD : Font.PLAIN);
             onChange.run();
+            onCommit.run();
         });
         add(boldToggle);
         addSeparator();
@@ -91,6 +103,9 @@ public class StyleToolbar extends JToolBar {
             }
             style.setRelativeSize(sizeSlider.getValue() / 100f);
             onChange.run();
+            if (!sizeSlider.getValueIsAdjusting()) {
+                onCommit.run(); // ein Undo-Schritt pro Slider-Zug
+            }
         });
         add(sizeSlider);
     }
@@ -115,6 +130,7 @@ public class StyleToolbar extends JToolBar {
             style.setColor(chosen);
             updateColorSwatch();
             onChange.run();
+            onCommit.run();
         }
     }
 

@@ -38,6 +38,8 @@ public class PreviewPanel extends JPanel {
 
     private static final int DRAG_PADDING = 8;
     private final TextDragModel drag = new TextDragModel();
+    /** Wird nach Abschluss eines Ziehvorgangs aufgerufen (z. B. Undo-Schritt aufzeichnen). */
+    private Runnable dragCommitListener = () -> { };
 
     public PreviewPanel() {
         setBackground(new Color(40, 40, 40));
@@ -66,8 +68,12 @@ public class PreviewPanel extends JPanel {
 
             @Override
             public void mouseReleased(MouseEvent e) {
+                boolean wasDragging = drag.isDragging();
                 drag.end();
                 updateCursor(e.getPoint());
+                if (wasDragging) {
+                    dragCommitListener.run();
+                }
             }
 
             @Override
@@ -94,6 +100,11 @@ public class PreviewPanel extends JPanel {
     public void setOverlayText(String text) {
         this.overlayText = text == null ? "" : text;
         repaint();
+    }
+
+    /** Registriert einen Callback, der nach Abschluss eines Ziehvorgangs feuert. */
+    public void setDragCommitListener(Runnable listener) {
+        this.dragCommitListener = listener == null ? () -> { } : listener;
     }
 
     public void setStampStyle(StampStyle style) {

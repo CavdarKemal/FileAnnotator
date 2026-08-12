@@ -2,6 +2,10 @@ package de.hasil.pictree.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -13,7 +17,9 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.swing.AbstractAction;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -22,11 +28,13 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
 import de.hasil.pictree.App;
 import de.hasil.pictree.model.Annotation;
+import de.hasil.pictree.model.EditState;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.AnnotationStore;
 import de.hasil.pictree.service.AppSettings;
@@ -35,6 +43,7 @@ import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
 import de.hasil.pictree.service.SaveService;
 import de.hasil.pictree.util.Logging;
+import de.hasil.pictree.util.UndoHistory;
 
 /**
  * Hauptfenster: links der Datei-Baum, rechts Werkzeugleiste, Bildvorschau und
@@ -62,6 +71,12 @@ public class MainFrame extends JFrame {
     private File annotatedImage;
     private final JMenu recentMenu = new JMenu("Zuletzt verwendet");
 
+    private final UndoHistory<EditState> history = new UndoHistory<>();
+    /** True, während ein Zustand wiederhergestellt wird (verhindert Neuaufzeichnung). */
+    private boolean restoring;
+    private JMenuItem undoItem;
+    private JMenuItem redoItem;
+
     public MainFrame() {
         this(new AppSettings().load());
     }
@@ -83,7 +98,7 @@ public class MainFrame extends JFrame {
         previewPanel.setStampStyle(style);
         commentPanel = new CommentPanel();
         statusLabel = new JLabel("Keine Datei ausgewählt.");
-        styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle);
+        styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
 
         JPanel southPanel = new JPanel(new BorderLayout());
         southPanel.add(commentPanel, BorderLayout.CENTER);
@@ -100,9 +115,11 @@ public class MainFrame extends JFrame {
         setJMenuBar(buildMenuBar());
 
         treePanel.addFileSelectionListener(this::onSelectionChanged);
-        commentPanel.addTextChangeListener(previewPanel::setOverlayText);
+        commentPanel.addTextChangeListener(this::onCommentChanged);
         commentPanel.getSaveButton().addActionListener(e -> onSave());
         commentPanel.getBatchButton().addActionListener(e -> onBatch());
+        previewPanel.setDragCommitListener(this::onEditCommitted);
+        installUndoKeyBindings();
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -137,13 +154,21 @@ public class MainFrame extends JFrame {
             updateRecentMenu();
         }
 
-        if (isImage) {
-            annotatedImage = file;
-            loadAnnotation(file);
-        } else {
-            annotatedImage = null;
-            commentPanel.setText("");
+        // Beim Umschalten keine Undo-Schritte aufzeichnen; danach Historie neu starten.
+        restoring = true;
+        try {
+            if (isImage) {
+                annotatedImage = file;
+                loadAnnotation(file);
+            } else {
+                annotatedImage = null;
+                commentPanel.setText("");
+            }
+        } finally {
+            restoring = false;
         }
+        history.reset(currentEditState());
+        updateUndoRedoState();
     }
 
     /** Lädt eine vorhandene Annotation und stellt Text, Stil und Position wieder her. */
@@ -197,6 +222,16 @@ public class MainFrame extends JFrame {
         file.add(recentMenu);
         bar.add(file);
 
+        JMenu edit = new JMenu("Bearbeiten");
+        undoItem = new JMenuItem("Rückgängig");
+        undoItem.addActionListener(e -> undo());
+        redoItem = new JMenuItem("Wiederholen");
+        redoItem.addActionListener(e -> redo());
+        edit.add(undoItem);
+        edit.add(redoItem);
+        bar.add(edit);
+        updateUndoRedoState();
+
         JMenu view = new JMenu("Ansicht");
         JCheckBoxMenuItem darkItem = new JCheckBoxMenuItem("Dunkles Theme");
         darkItem.setSelected(AppSettings.THEME_DARK.equals(settings.getTheme()));
@@ -204,6 +239,88 @@ public class MainFrame extends JFrame {
         view.add(darkItem);
         bar.add(view);
         return bar;
+    }
+
+    private void installUndoKeyBindings() {
+        int menuMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+        JComponent root = getRootPane();
+        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask), "pictree.undo");
+        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, menuMask), "pictree.redo");
+        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask | InputEvent.SHIFT_DOWN_MASK),
+                        "pictree.redo");
+        root.getActionMap().put("pictree.undo", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                undo();
+            }
+        });
+        root.getActionMap().put("pictree.redo", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                redo();
+            }
+        });
+    }
+
+    /** Aktueller bearbeitbarer Zustand (Text + Stil). */
+    private EditState currentEditState() {
+        return EditState.of(commentPanel.getText(), style);
+    }
+
+    /** Wird bei Abschluss einer Bearbeitung aufgerufen (Style-Commit, Drag-Ende). */
+    private void onEditCommitted() {
+        refreshPreviewStyle();
+        recordState();
+    }
+
+    private void onCommentChanged(String text) {
+        previewPanel.setOverlayText(text);
+        recordState();
+    }
+
+    private void recordState() {
+        if (restoring) {
+            return;
+        }
+        history.record(currentEditState());
+        updateUndoRedoState();
+    }
+
+    private void undo() {
+        applyState(history.undo());
+    }
+
+    private void redo() {
+        applyState(history.redo());
+    }
+
+    private void applyState(EditState state) {
+        if (state == null) {
+            return;
+        }
+        restoring = true;
+        try {
+            style.copyFrom(state.style());
+            styleToolbar.syncFromStyle();
+            commentPanel.setText(state.comment());
+            previewPanel.setOverlayText(state.comment());
+            previewPanel.setStampStyle(style);
+        } finally {
+            restoring = false;
+        }
+        updateUndoRedoState();
+    }
+
+    private void updateUndoRedoState() {
+        if (undoItem != null) {
+            undoItem.setEnabled(history.canUndo());
+        }
+        if (redoItem != null) {
+            redoItem.setEnabled(history.canRedo());
+        }
     }
 
     /** Baut das "Zuletzt verwendet"-Menü aus den Einstellungen neu auf. */
