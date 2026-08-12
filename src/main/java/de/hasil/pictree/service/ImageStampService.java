@@ -7,6 +7,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
 import de.hasil.pictree.model.LogoOverlay;
+import de.hasil.pictree.model.RenderRequest;
 import de.hasil.pictree.model.StampStyle;
 
 /**
@@ -25,17 +26,20 @@ public final class ImageStampService {
         return renderStamp(source, text, style, null);
     }
 
-    /**
-     * Erzeugt eine neue, mit Logo und Text versehene RGB-Kopie des Quellbildes.
-     *
-     * @param source Quellbild (unverändert)
-     * @param text   Stempeltext (leer/null => kein Text)
-     * @param style  Stil und relative Position
-     * @param logo   optionales Logo-Overlay (darf {@code null} sein)
-     * @return neue {@link BufferedImage}-Instanz (TYPE_INT_RGB)
-     */
+    /** Mit optionalem Logo-Overlay. */
     public static BufferedImage renderStamp(BufferedImage source, String text, StampStyle style,
             LogoOverlay logo) {
+        return render(new RenderRequest(source, text, style, logo));
+    }
+
+    /**
+     * Erzeugt eine neue, gemäß {@code request} bestempelte RGB-Kopie des
+     * Quellbildes (Logo unter Text). Das Original wird nie verändert.
+     *
+     * @return neue {@link BufferedImage}-Instanz (TYPE_INT_RGB)
+     */
+    public static BufferedImage render(RenderRequest request) {
+        BufferedImage source = request.source();
         int w = source.getWidth();
         int h = source.getHeight();
         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
@@ -49,8 +53,8 @@ public final class ImageStampService {
             g.fillRect(0, 0, w, h);
             g.drawImage(source, 0, 0, null);
             Rectangle area = new Rectangle(0, 0, w, h);
-            LogoOverlayRenderer.draw(g, logo, area);
-            TextStampRenderer.drawStamp(g, text, style, area);
+            LogoOverlayRenderer.draw(g, request.logo(), area);
+            TextStampRenderer.drawStamp(g, request.text(), request.style(), area);
         } finally {
             g.dispose();
         }
