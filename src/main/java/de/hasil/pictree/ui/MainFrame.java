@@ -2,9 +2,12 @@ package de.hasil.pictree.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -14,7 +17,9 @@ import javax.swing.JSplitPane;
 import javax.swing.SwingWorker;
 
 import de.hasil.pictree.App;
+import de.hasil.pictree.model.Annotation;
 import de.hasil.pictree.model.StampStyle;
+import de.hasil.pictree.service.AnnotationStore;
 import de.hasil.pictree.service.BatchService;
 import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
@@ -36,8 +41,11 @@ public class MainFrame extends JFrame {
     private final SaveService saveService = new SaveService();
     private final ExifService exifService = new ExifService();
     private final BatchService batchService = new BatchService(saveService, exifService);
+    private final AnnotationStore annotationStore = new AnnotationStore();
 
     private File selectedFolder;
+    /** Aktuell angezeigtes Bild, dessen Annotation bearbeitet wird (oder null). */
+    private File annotatedImage;
 
     public MainFrame() {
         super(App.APP_NAME);
@@ -65,16 +73,68 @@ public class MainFrame extends JFrame {
         split.setDividerLocation(320);
         setContentPane(split);
 
-        treePanel.addFileSelectionListener(file -> {
-            previewPanel.showFile(file);
-            commentPanel.getSaveButton().setEnabled(previewPanel.hasImage());
-            selectedFolder = (file != null && file.isDirectory()) ? file : null;
-            commentPanel.getBatchButton().setEnabled(selectedFolder != null);
-            statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath());
-        });
+        treePanel.addFileSelectionListener(this::onSelectionChanged);
         commentPanel.addTextChangeListener(previewPanel::setOverlayText);
         commentPanel.getSaveButton().addActionListener(e -> onSave());
         commentPanel.getBatchButton().addActionListener(e -> onBatch());
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                persistCurrentAnnotation();
+            }
+        });
+    }
+
+    private void onSelectionChanged(File file) {
+        // Zustand des bisher angezeigten Bildes sichern, bevor umgeschaltet wird.
+        persistCurrentAnnotation();
+
+        previewPanel.showFile(file);
+        boolean isImage = previewPanel.hasImage();
+        commentPanel.getSaveButton().setEnabled(isImage);
+        selectedFolder = (file != null && file.isDirectory()) ? file : null;
+        commentPanel.getBatchButton().setEnabled(selectedFolder != null);
+        statusLabel.setText(file == null ? "Keine Datei ausgewählt." : file.getAbsolutePath());
+
+        if (isImage) {
+            annotatedImage = file;
+            loadAnnotation(file);
+        } else {
+            annotatedImage = null;
+            commentPanel.setText("");
+        }
+    }
+
+    /** Lädt eine vorhandene Annotation und stellt Text, Stil und Position wieder her. */
+    private void loadAnnotation(File image) {
+        Optional<Annotation> loaded = annotationStore.load(image);
+        if (loaded.isPresent()) {
+            style.copyFrom(loaded.get().style());
+            styleToolbar.syncFromStyle();
+            commentPanel.setText(loaded.get().comment());
+        } else {
+            // Kein Sidecar: Kommentar leeren, zuletzt genutzten Stil beibehalten.
+            commentPanel.setText("");
+        }
+        previewPanel.setStampStyle(style);
+    }
+
+    /** Speichert bzw. entfernt die Sidecar-Annotation des aktuell bearbeiteten Bildes. */
+    private void persistCurrentAnnotation() {
+        if (annotatedImage == null) {
+            return;
+        }
+        try {
+            String comment = commentPanel.getText();
+            if (comment == null || comment.isBlank()) {
+                annotationStore.delete(annotatedImage);
+            } else {
+                annotationStore.save(annotatedImage, comment, style);
+            }
+        } catch (IOException ex) {
+            System.err.println("Annotation konnte nicht gespeichert werden: " + ex.getMessage());
+        }
     }
 
     private void refreshPreviewStyle() {

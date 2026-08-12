@@ -31,28 +31,36 @@ public class StyleToolbar extends JToolBar {
     private final Runnable onChange;
 
     private final JButton colorButton = new JButton("Farbe");
+    private final JComboBox<String> fontBox =
+            new JComboBox<>(FontRegistry.AVAILABLE_FAMILIES.toArray(new String[0]));
+    private final JToggleButton boldToggle = new JToggleButton("F");
+    private final JSlider sizeSlider = new JSlider(MIN_PERCENT, MAX_PERCENT, MIN_PERCENT);
+
+    /** Verhindert Rückkopplung, während die Widgets aus dem Style gesetzt werden. */
+    private boolean syncing;
 
     public StyleToolbar(StampStyle style, Runnable onChange) {
         this.style = style;
         this.onChange = onChange == null ? () -> { } : onChange;
         setFloatable(false);
         buildComponents();
+        syncFromStyle();
     }
 
     private void buildComponents() {
         // Farbe
         colorButton.setToolTipText("Schriftfarbe wählen");
-        updateColorSwatch();
         colorButton.addActionListener(e -> chooseColor());
         add(colorButton);
         addSeparator();
 
         // Schriftfamilie
         add(new JLabel(" Schrift: "));
-        JComboBox<String> fontBox = new JComboBox<>(FontRegistry.AVAILABLE_FAMILIES.toArray(new String[0]));
-        fontBox.setSelectedItem(style.getFontFamily());
         fontBox.setMaximumSize(new Dimension(150, 28));
         fontBox.addActionListener(e -> {
+            if (syncing) {
+                return;
+            }
             style.setFontFamily((String) fontBox.getSelectedItem());
             onChange.run();
         });
@@ -60,30 +68,45 @@ public class StyleToolbar extends JToolBar {
         addSeparator();
 
         // Fett
-        JToggleButton bold = new JToggleButton("F");
-        bold.setToolTipText("Fett");
-        bold.setFont(bold.getFont().deriveFont(Font.BOLD));
-        bold.setSelected((style.getFontStyle() & Font.BOLD) != 0);
-        bold.addActionListener(e -> {
-            style.setFontStyle(bold.isSelected() ? Font.BOLD : Font.PLAIN);
+        boldToggle.setToolTipText("Fett");
+        boldToggle.setFont(boldToggle.getFont().deriveFont(Font.BOLD));
+        boldToggle.addActionListener(e -> {
+            if (syncing) {
+                return;
+            }
+            style.setFontStyle(boldToggle.isSelected() ? Font.BOLD : Font.PLAIN);
             onChange.run();
         });
-        add(bold);
+        add(boldToggle);
         addSeparator();
 
         // Größe
         add(new JLabel(" Größe: "));
-        int initialPercent = Math.round(style.getRelativeSize() * 100f);
-        JSlider sizeSlider = new JSlider(MIN_PERCENT, MAX_PERCENT,
-                Math.min(MAX_PERCENT, Math.max(MIN_PERCENT, initialPercent)));
         sizeSlider.setMajorTickSpacing(7);
         sizeSlider.setPaintTicks(true);
         sizeSlider.setMaximumSize(new Dimension(180, 40));
         sizeSlider.addChangeListener(e -> {
+            if (syncing) {
+                return;
+            }
             style.setRelativeSize(sizeSlider.getValue() / 100f);
             onChange.run();
         });
         add(sizeSlider);
+    }
+
+    /** Aktualisiert alle Bedienelemente anhand des aktuellen {@link StampStyle}. */
+    public void syncFromStyle() {
+        syncing = true;
+        try {
+            updateColorSwatch();
+            fontBox.setSelectedItem(style.getFontFamily());
+            boldToggle.setSelected((style.getFontStyle() & Font.BOLD) != 0);
+            int percent = Math.round(style.getRelativeSize() * 100f);
+            sizeSlider.setValue(Math.min(MAX_PERCENT, Math.max(MIN_PERCENT, percent)));
+        } finally {
+            syncing = false;
+        }
     }
 
     private void chooseColor() {

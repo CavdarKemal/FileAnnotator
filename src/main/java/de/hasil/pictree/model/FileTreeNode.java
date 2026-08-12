@@ -106,6 +106,10 @@ public class FileTreeNode {
         }
         List<FileTreeNode> result = new ArrayList<>(sorted.length);
         for (File f : sorted) {
+            // Sidecar-Dateien der Annotationen nicht im Baum anzeigen.
+            if (f.getName().endsWith(".pictree.properties")) {
+                continue;
+            }
             result.add(new FileTreeNode(f, false, fsv));
         }
         return result;

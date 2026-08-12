@@ -92,6 +92,20 @@ public class StampStyle {
         this.outline = outline;
     }
 
+    /** Übernimmt alle Werte aus {@code o} in dieses Objekt (In-Place). */
+    public void copyFrom(StampStyle o) {
+        if (o == null) {
+            return;
+        }
+        this.color = o.color;
+        this.fontFamily = o.fontFamily;
+        this.fontStyle = o.fontStyle;
+        this.relativeSize = o.relativeSize;
+        this.relX = o.relX;
+        this.relY = o.relY;
+        this.outline = o.outline;
+    }
+
     /** Tiefe Kopie dieses Stils. */
     public StampStyle copy() {
         StampStyle c = new StampStyle();
