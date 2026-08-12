@@ -14,6 +14,7 @@ import javax.swing.JSplitPane;
 
 import de.hasil.pictree.App;
 import de.hasil.pictree.model.StampStyle;
+import de.hasil.pictree.service.ExifService;
 import de.hasil.pictree.service.ImageStampService;
 import de.hasil.pictree.service.SaveService;
 
@@ -31,6 +32,7 @@ public class MainFrame extends JFrame {
     private final JLabel statusLabel;
     private final StampStyle style = new StampStyle();
     private final SaveService saveService = new SaveService();
+    private final ExifService exifService = new ExifService();
 
     public MainFrame() {
         super(App.APP_NAME);
@@ -81,9 +83,12 @@ public class MainFrame extends JFrame {
         try {
             BufferedImage stamped = ImageStampService.renderStamp(src, commentPanel.getText(), style);
             File saved = saveService.save(stamped, original.getName());
-            statusLabel.setText("Gespeichert: " + saved.getAbsolutePath());
+            boolean exifCopied = exifService.copyExif(original, saved);
+            statusLabel.setText("Gespeichert: " + saved.getAbsolutePath()
+                    + (exifCopied ? " (EXIF übernommen)" : ""));
             JOptionPane.showMessageDialog(this,
-                    "Bild gespeichert:\n" + saved.getAbsolutePath(),
+                    "Bild gespeichert:\n" + saved.getAbsolutePath()
+                            + (exifCopied ? "\nEXIF-Daten wurden übernommen." : ""),
                     "Gespeichert", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this,
