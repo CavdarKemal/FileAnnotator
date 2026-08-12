@@ -40,13 +40,20 @@ public final class ImageSupport {
         return fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
     }
 
-    /** Lädt ein Bild oder gibt {@code null} zurück, wenn es nicht gelesen werden kann. */
+    /**
+     * Lädt ein Bild und korrigiert dabei die EXIF-Orientierung, oder gibt
+     * {@code null} zurück, wenn es nicht gelesen werden kann.
+     */
     public static BufferedImage load(File file) {
         if (!isImageFile(file)) {
             return null;
         }
         try {
-            return ImageIO.read(file);
+            BufferedImage raw = ImageIO.read(file);
+            if (raw == null) {
+                return null;
+            }
+            return ImageOrientation.correct(file, raw);
         } catch (IOException | RuntimeException ex) {
             return null;
         }

@@ -15,6 +15,8 @@ import org.apache.commons.imaging.common.ImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
 import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
+import org.apache.commons.imaging.formats.tiff.constants.TiffTagConstants;
+import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 
 /**
@@ -61,9 +63,22 @@ public class ExifService {
         if (metadata instanceof JpegImageMetadata jpeg) {
             TiffImageMetadata exif = jpeg.getExif();
             if (exif != null) {
-                return exif.getOutputSet();
+                TiffOutputSet outputSet = exif.getOutputSet();
+                normalizeOrientation(outputSet);
+                return outputSet;
             }
         }
         return null;
+    }
+
+    /**
+     * Setzt die Orientierung auf 1 (normal). Die Rotation ist beim Laden bereits
+     * pixelbasiert eingebacken; ohne diese Normalisierung würden Viewer das
+     * Ergebnis erneut drehen.
+     */
+    private void normalizeOrientation(TiffOutputSet outputSet) throws Exception {
+        TiffOutputDirectory root = outputSet.getOrCreateRootDirectory();
+        root.removeField(TiffTagConstants.TIFF_TAG_ORIENTATION);
+        root.add(TiffTagConstants.TIFF_TAG_ORIENTATION, (short) 1);
     }
 }
