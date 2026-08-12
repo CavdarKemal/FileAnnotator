@@ -43,6 +43,26 @@ java -jar target/pictree.jar
 mvn exec:java
 ```
 
+## Windows-App bauen (jpackage)
+
+Eigenständige App mit **gebündeltem JRE** (kein separates JDK nötig, Start per
+Doppelklick):
+
+```bash
+export JAVA_HOME="/c/Program Files/AdoptOpenJDK/jdk-26"
+bash scripts/jpackage.sh            # -> target/dist/PicTree/PicTree.exe
+```
+
+Optional als **Installer** (`.msi`, benötigt das [WiX Toolset](https://wixtoolset.org/)):
+
+```bash
+bash scripts/jpackage.sh msi        # -> target/dist/PicTree-0.1.0.msi
+```
+
+Der MSI-Installer registriert Startmenü-Eintrag, Verknüpfung und eine
+**Datei-Assoziation** für `.jpg` (siehe `scripts/pictree-fileassoc.properties`),
+sodass Bilder per „Öffnen mit / Senden an" direkt in PicTree landen.
+
 ## Bedienung
 
 1. Links im Baum ein Bild auswählen.
