@@ -26,8 +26,44 @@ public class BatchService {
     public record Failure(File file, String reason) {
     }
 
-    /** Unterordner im Quellordner, in den die gestempelten Bilder geschrieben werden. */
+    /** Standard-Unterordner, falls kein (gültiger) Stempeltext für den Namen vorliegt. */
     public static final String OUTPUT_SUBDIR = "_stamped";
+
+    /** Maximallänge des aus dem Stempeltext abgeleiteten Ordnernamens. */
+    private static final int MAX_FOLDER_NAME = 60;
+
+    /** Unter Windows reservierte Gerätenamen (case-insensitiv). */
+    private static final java.util.Set<String> RESERVED_NAMES = java.util.Set.of(
+            "con", "prn", "aux", "nul",
+            "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+            "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9");
+
+    /**
+     * Leitet aus dem Stempeltext einen dateisystem-sicheren Ordnernamen ab:
+     * unzulässige Zeichen werden entfernt, Zeilenumbrüche zu Leerzeichen, die
+     * Länge begrenzt. Ist das Ergebnis leer oder reserviert, wird ein sicherer
+     * Ersatz ({@link #OUTPUT_SUBDIR}) verwendet.
+     */
+    public static String sanitizeFolderName(String text) {
+        if (text == null) {
+            return OUTPUT_SUBDIR;
+        }
+        String s = text.replaceAll("[\\r\\n\\t]+", " ");
+        s = s.replaceAll("[\\\\/:*?\"<>|]", "");   // unter Windows/Unix unzulässige Zeichen
+        s = s.replaceAll("[\\x00-\\x1f]", "");     // Steuerzeichen
+        s = s.replaceAll("\\s+", " ").trim();
+        s = s.replaceAll("^[.\\s]+", "").replaceAll("[.\\s]+$", ""); // führende/abschließende . und Space
+        if (s.length() > MAX_FOLDER_NAME) {
+            s = s.substring(0, MAX_FOLDER_NAME).trim();
+        }
+        if (s.isEmpty()) {
+            return OUTPUT_SUBDIR;
+        }
+        if (RESERVED_NAMES.contains(s.toLowerCase(java.util.Locale.ROOT))) {
+            return s + "_";
+        }
+        return s;
+    }
 
     /** Ergebnis eines Stapellaufs inkl. tatsächlichem Zielordner. */
     public record BatchResult(List<File> saved, List<Failure> failed, File outputDir) {

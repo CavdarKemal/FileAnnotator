@@ -142,6 +142,25 @@ class BatchServiceTest {
     }
 
     @Test
+    void sanitizeFolderNameProducesSafeNames() {
+        assertEquals("Testz", BatchService.sanitizeFolderName("Testz"));
+        // Unzulaessige Zeichen werden entfernt.
+        assertEquals("abc", BatchService.sanitizeFolderName("a/b:c*?\"<>|"));
+        // Zeilenumbrueche/Tabs -> Leerzeichen, zusammengefasst.
+        assertEquals("a b", BatchService.sanitizeFolderName("a\n\tb"));
+        // Fuehrende/abschliessende Punkte und Leerzeichen entfallen.
+        assertEquals("hi", BatchService.sanitizeFolderName("  .hi.  "));
+        // Leer/null -> Standard-Unterordner.
+        assertEquals(BatchService.OUTPUT_SUBDIR, BatchService.sanitizeFolderName("   "));
+        assertEquals(BatchService.OUTPUT_SUBDIR, BatchService.sanitizeFolderName(null));
+        assertEquals(BatchService.OUTPUT_SUBDIR, BatchService.sanitizeFolderName("///"));
+        // Reservierter Windows-Name wird entschaerft.
+        assertEquals("CON_", BatchService.sanitizeFolderName("CON"));
+        // Ueberlange Namen werden gekappt.
+        assertTrue(BatchService.sanitizeFolderName("x".repeat(200)).length() <= 60);
+    }
+
+    @Test
     void emptyOrNonFolderYieldsEmptyResult(@TempDir Path album) {
         BatchService service = newService(album);
         BatchService.BatchResult r = service.processFolder(

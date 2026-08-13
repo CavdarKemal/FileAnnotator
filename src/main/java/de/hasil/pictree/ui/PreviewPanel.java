@@ -3,6 +3,7 @@ package de.hasil.pictree.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -56,6 +57,17 @@ public class PreviewPanel extends JPanel {
     private final TextDragModel drag = new TextDragModel();
     /** Wird nach Abschluss eines Ziehvorgangs aufgerufen (z. B. Undo-Schritt aufzeichnen). */
     private Runnable dragCommitListener = () -> { };
+
+    /** Kantenlänge des Größen-Griffs (unten rechts am Textrahmen). */
+    private static final int HANDLE_SIZE = 12;
+    private static final double MIN_REL_SIZE = 0.01;
+    private static final double MAX_REL_SIZE = 1.0;
+    private boolean resizing;
+    private double resizeStartSize;
+    private double resizeStartDist;
+    private Point resizeAnchor;
+    /** Wird nach Abschluss einer Größenänderung aufgerufen (Toolbar-Sync + Undo). */
+    private Runnable resizeCommitListener = () -> { };
 
     /** Aktive Einrast-Hilfslinien (während des Ziehens). */
     private boolean guideX;
@@ -122,6 +134,11 @@ public class PreviewPanel extends JPanel {
                     setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
                     return;
                 }
+                // Zuerst der Größen-Griff (liegt am Rand des Textrahmens), dann Verschieben.
+                if (hasImage() && overResizeHandle(e.getPoint())) {
+                    beginResize(e.getPoint());
+                    return;
+                }
                 if (hasImage() && TextDragModel.hitTest(e.getPoint(), lastTextRect, DRAG_PADDING)) {
                     drag.begin(e.getPoint(), style.getRelX(), style.getRelY(), lastImageRect);
                     setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
@@ -133,6 +150,13 @@ public class PreviewPanel extends JPanel {
                 if (panning) {
                     panX = panOrigX + (e.getX() - panStartX);
                     panY = panOrigY + (e.getY() - panStartY);
+                    repaint();
+                    return;
+                }
+                if (resizing) {
+                    double dist = resizeAnchor.distance(e.getPoint());
+                    double factor = dist / resizeStartDist;
+                    style.setRelativeSize((float) clampSize(resizeStartSize * factor));
                     repaint();
                     return;
                 }
@@ -153,6 +177,13 @@ public class PreviewPanel extends JPanel {
                 if (panning) {
                     panning = false;
                     updateCursor(e.getPoint());
+                    return;
+                }
+                if (resizing) {
+                    resizing = false;
+                    updateCursor(e.getPoint());
+                    repaint();
+                    resizeCommitListener.run();
                     return;
                 }
                 boolean wasDragging = drag.isDragging();
@@ -214,8 +245,39 @@ public class PreviewPanel extends JPanel {
     }
 
     private void updateCursor(Point p) {
+        if (hasImage() && overResizeHandle(p)) {
+            setCursor(Cursor.getPredefinedCursor(Cursor.SE_RESIZE_CURSOR));
+            return;
+        }
         boolean overText = hasImage() && TextDragModel.hitTest(p, lastTextRect, DRAG_PADDING);
         setCursor(Cursor.getPredefinedCursor(overText ? Cursor.MOVE_CURSOR : Cursor.DEFAULT_CURSOR));
+    }
+
+    private void beginResize(Point p) {
+        resizing = true;
+        resizeAnchor = PreviewGeometry.relativeToPanel(style.getRelX(), style.getRelY(), lastImageRect);
+        resizeStartSize = style.getRelativeSize();
+        resizeStartDist = Math.max(1.0, resizeAnchor.distance(p));
+        setCursor(Cursor.getPredefinedCursor(Cursor.SE_RESIZE_CURSOR));
+    }
+
+    private boolean overResizeHandle(Point p) {
+        Rectangle h = resizeHandleRect();
+        return h != null && h.contains(p);
+    }
+
+    /** Rechteck des Größen-Griffs (unten rechts am Textrahmen) oder {@code null}. */
+    private Rectangle resizeHandleRect() {
+        if (lastTextRect == null || !showOverlay || overlayText == null || overlayText.isBlank()) {
+            return null;
+        }
+        int cx = lastTextRect.x + lastTextRect.width;
+        int cy = lastTextRect.y + lastTextRect.height;
+        return new Rectangle(cx - HANDLE_SIZE / 2, cy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+    }
+
+    private static double clampSize(double v) {
+        return Math.max(MIN_REL_SIZE, Math.min(MAX_REL_SIZE, v));
     }
 
     private void installKeyBindings() {
@@ -264,6 +326,37 @@ public class PreviewPanel extends JPanel {
         repaint();
     }
 
+    /**
+     * Zeigt ein neutrales Dummy-Bild als Positionierungs-Leinwand (z. B. für den
+     * Ordner-Stempel). {@link #hasImage()} liefert danach {@code true}, sodass
+     * Verschieben/Skalieren des Stempels möglich ist; {@link #getCurrentFile()}
+     * bleibt jedoch {@code null} (kein echtes Bild zum Einzel-Speichern).
+     */
+    public void showDummy() {
+        this.currentFile = null;
+        this.image = createDummyImage();
+        this.previewImage = image;
+        resetView();
+        repaint();
+    }
+
+    private static BufferedImage createDummyImage() {
+        int w = 1200;
+        int h = 800;
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        try {
+            g.setPaint(new GradientPaint(0, 0, new Color(228, 228, 232), 0, h, new Color(198, 198, 205)));
+            g.fillRect(0, 0, w, h);
+            g.setColor(new Color(165, 165, 172));
+            g.setStroke(new BasicStroke(3f));
+            g.drawRect(6, 6, w - 12, h - 12);
+        } finally {
+            g.dispose();
+        }
+        return img;
+    }
+
     public void setOverlayText(String text) {
         this.overlayText = text == null ? "" : text;
         repaint();
@@ -272,6 +365,11 @@ public class PreviewPanel extends JPanel {
     /** Registriert einen Callback, der nach Abschluss eines Ziehvorgangs feuert. */
     public void setDragCommitListener(Runnable listener) {
         this.dragCommitListener = listener == null ? () -> { } : listener;
+    }
+
+    /** Registriert einen Callback, der nach Abschluss einer Größenänderung feuert. */
+    public void setResizeCommitListener(Runnable listener) {
+        this.resizeCommitListener = listener == null ? () -> { } : listener;
     }
 
     /** Blendet den Text-Stempel ein/aus (Vorher/Nachher-Vergleich). */
@@ -356,8 +454,30 @@ public class PreviewPanel extends JPanel {
                 paintSafeArea(g2, fit);
             }
             paintGuides(g2, fit);
+            paintTextSelection(g2);
         } finally {
             g2.dispose();
+        }
+    }
+
+    /** Zeichnet den Auswahlrahmen um den Text und den Größen-Griff (Bearbeitungs-Affordanz). */
+    private void paintTextSelection(Graphics2D g2) {
+        Rectangle r = lastTextRect;
+        if (r == null || !showOverlay || overlayText == null || overlayText.isBlank()) {
+            return;
+        }
+        g2.setColor(new Color(0, 150, 255, 160));
+        g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
+                10f, new float[] {4f, 4f}, 0f));
+        g2.drawRect(r.x, r.y, r.width, r.height);
+
+        Rectangle h = resizeHandleRect();
+        if (h != null) {
+            g2.setStroke(new BasicStroke(1f));
+            g2.setColor(new Color(0, 150, 255, 220));
+            g2.fillRect(h.x, h.y, h.width, h.height);
+            g2.setColor(Color.WHITE);
+            g2.drawRect(h.x, h.y, h.width, h.height);
         }
     }
 

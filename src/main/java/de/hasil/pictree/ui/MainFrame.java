@@ -86,6 +86,8 @@ public class MainFrame extends JFrame {
     private ImageTypeFilter imageFilter;
     /** Aktuell angezeigtes Bild, dessen Annotation bearbeitet wird (oder null). */
     private File annotatedImage;
+    /** Datei, gegen die Text-Platzhalter der Vorschau aufgelöst werden (oder null). */
+    private File overlayContextFile;
     private final JMenu recentMenu = new JMenu("Zuletzt verwendet");
     private final JMenu presetMenu = new JMenu("Vorlagen");
     private final PresetStore presetStore = new PresetStore();
@@ -119,6 +121,7 @@ public class MainFrame extends JFrame {
         previewPanel = new PreviewPanel();
         previewPanel.setStampStyle(style);
         thumbnailStrip = new ThumbnailStripPanel();
+        thumbnailStrip.setVisible(false);
         commentPanel = new CommentPanel();
         statusLabel = new JLabel(I18n.t("status.noSelection"));
         styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
@@ -159,6 +162,7 @@ public class MainFrame extends JFrame {
         commentPanel.getSaveButton().addActionListener(e -> onSave());
         commentPanel.getBatchButton().addActionListener(e -> onBatch());
         previewPanel.setDragCommitListener(this::onEditCommitted);
+        previewPanel.setResizeCommitListener(this::onStampResized);
         installUndoKeyBindings();
         installFileDrop();
 
@@ -181,28 +185,69 @@ public class MainFrame extends JFrame {
         persistCurrentAnnotation();
 
         selectedFolder = (file != null && file.isDirectory()) ? file : null;
-        // Ordner, dessen Bilder in den Streifen kommen: Ordnerauswahl oder Elternordner eines Bildes.
-        batchFolder = selectedFolder != null ? selectedFolder
-                : (file != null ? file.getParentFile() : null);
-        updateThumbnailStrip();
+        batchFolder = selectedFolder;
 
-        // Ordner für "Zuletzt verwendet" merken.
-        if (batchFolder != null) {
-            settings.addRecentFolder(batchFolder.getAbsolutePath());
+        // "Zuletzt verwendet": Ordnerauswahl oder Elternordner eines Bildes.
+        File recentFolder = selectedFolder != null ? selectedFolder
+                : (file != null ? file.getParentFile() : null);
+        if (recentFolder != null) {
+            settings.addRecentFolder(recentFolder.getAbsolutePath());
             updateRecentMenu();
         }
 
-        showImageForEditing(file);
+        if (selectedFolder != null) {
+            // Ordner-Modus: Thumbnail-Streifen + Dummy-Leinwand zum Positionieren des Stempels.
+            enterFolderMode(selectedFolder);
+        } else {
+            // Einzeldatei/nichts: Streifen ausblenden, normales Bild-Editieren.
+            thumbnailStrip.clear();
+            setStripVisible(false);
+            updateBatchButtonEnable();
+            showImageForEditing(file);
+        }
+    }
+
+    /**
+     * Ordner-Modus: befüllt den Thumbnail-Streifen und zeigt – sofern relevante
+     * Bilder vorhanden sind – ein Dummy-Bild mit dem Stempeltext, dessen Position
+     * und Größe per Maus gesetzt werden können (Vorlage für den Stapel).
+     */
+    private void enterFolderMode(File folder) {
+        java.util.List<File> images = BatchService.listImages(folder, imageFilter);
+        thumbnailStrip.setImages(images);
+        setStripVisible(!images.isEmpty());
+        updateBatchButtonEnable();
+
+        overlayContextFile = images.isEmpty() ? null : images.get(0);
+        annotatedImage = null;
+        // Dummy ist kein echtes Bild -> kein Einzel-Speichern.
+        commentPanel.getSaveButton().setEnabled(false);
+        statusLabel.setText(folder.getAbsolutePath());
+
+        restoring = true;
+        try {
+            if (images.isEmpty()) {
+                previewPanel.showFile(folder); // zeigt "keine Bildvorschau"
+            } else {
+                previewPanel.showDummy();
+                previewPanel.setOverlayText(
+                        PlaceholderResolver.resolve(commentPanel.getText(), overlayContextFile));
+            }
+        } finally {
+            restoring = false;
+        }
+        history.reset(currentEditState());
+        updateUndoRedoState();
     }
 
     /**
      * Wechselt das angezeigte Bild und stellt dessen Annotation wieder her –
-     * ohne Baum-Selektion oder Thumbnail-Streifen zu verändern. Gemeinsame Basis
-     * für Baum-Selektion und Thumbnail-Klick.
+     * ohne Baum-Selektion oder Thumbnail-Streifen zu verändern.
      */
     private void showImageForEditing(File file) {
         previewPanel.showFile(file);
         boolean isImage = previewPanel.hasImage();
+        overlayContextFile = isImage ? file : null;
         commentPanel.getSaveButton().setEnabled(isImage);
         statusLabel.setText(file == null ? I18n.t("status.noSelection") : file.getAbsolutePath());
 
@@ -223,20 +268,29 @@ public class MainFrame extends JFrame {
         updateUndoRedoState();
     }
 
-    /** Klick auf ein Thumbnail: Bild anzeigen/bearbeiten, ohne die Auswahl im Streifen zu berühren. */
+    /**
+     * Klick auf ein Thumbnail (im Ordner-Modus): zeigt den aktuellen Stempel auf
+     * dem echten Bild als Batch-Vorschau – ohne Batch-Text/-Stil oder die Auswahl
+     * im Streifen zu verändern.
+     */
     private void onThumbnailPicked(File file) {
-        persistCurrentAnnotation();
-        showImageForEditing(file);
+        previewPanel.showFile(file);
+        overlayContextFile = file;
+        previewPanel.setOverlayText(PlaceholderResolver.resolve(commentPanel.getText(), file));
+        commentPanel.getSaveButton().setEnabled(previewPanel.hasImage());
+        statusLabel.setText(file.getAbsolutePath());
     }
 
-    /** Befüllt den Thumbnail-Streifen mit den (gefilterten) Bildern von {@link #batchFolder}. */
-    private void updateThumbnailStrip() {
-        if (batchFolder != null) {
-            thumbnailStrip.setImages(BatchService.listImages(batchFolder, imageFilter));
-        } else {
-            thumbnailStrip.clear();
+    /** Blendet den Thumbnail-Streifen ein/aus und ordnet das Layout neu an. */
+    private void setStripVisible(boolean visible) {
+        if (thumbnailStrip.isVisible() != visible) {
+            thumbnailStrip.setVisible(visible);
+            java.awt.Container parent = thumbnailStrip.getParent();
+            if (parent != null) {
+                parent.revalidate();
+                parent.repaint();
+            }
         }
-        updateBatchButtonEnable();
     }
 
     /** Der Stapel-Button ist aktiv, sobald der Streifen mindestens ein Bild zeigt. */
@@ -244,13 +298,31 @@ public class MainFrame extends JFrame {
         commentPanel.getBatchButton().setEnabled(batchFolder != null && thumbnailStrip.getImageCount() > 0);
     }
 
-    /** Filteränderung: persistieren, Baum neu aufbauen (Selektion erhalten), Streifen aktualisieren. */
+    /** Größenänderung des Stempels per Maus abgeschlossen: Toolbar angleichen + Undo-Schritt. */
+    private void onStampResized() {
+        refreshPreviewStyle();
+        restoring = true;
+        try {
+            syncToolbars();
+        } finally {
+            restoring = false;
+        }
+        recordState();
+    }
+
+    /** Filteränderung: persistieren, Baum neu aufbauen (Selektion erhalten), Ansicht aktualisieren. */
     private void onFilterChanged(ImageTypeFilter filter) {
         imageFilter = filter;
         settings.setImageTypeFilter(filter);
         treePanel.rebuildPreservingSelection(
                 new LazyFileTreeModel(FileTreeNode.createComputerRoot(filter)));
-        updateThumbnailStrip();
+        if (selectedFolder != null) {
+            enterFolderMode(selectedFolder);
+        } else {
+            thumbnailStrip.clear();
+            setStripVisible(false);
+            updateBatchButtonEnable();
+        }
     }
 
     /** Lädt eine vorhandene Annotation und stellt Text, Stil und Position wieder her. */
@@ -544,7 +616,7 @@ public class MainFrame extends JFrame {
 
     private void onCommentChanged(String text) {
         // Platzhalter (z. B. {datum}, {dateiname}) für die Vorschau auflösen.
-        previewPanel.setOverlayText(PlaceholderResolver.resolve(text, annotatedImage));
+        previewPanel.setOverlayText(PlaceholderResolver.resolve(text, overlayContextFile));
         recordState();
     }
 
@@ -573,7 +645,7 @@ public class MainFrame extends JFrame {
             style.copyFrom(state.style());
             syncToolbars();
             commentPanel.setText(state.comment());
-            previewPanel.setOverlayText(PlaceholderResolver.resolve(state.comment(), annotatedImage));
+            previewPanel.setOverlayText(PlaceholderResolver.resolve(state.comment(), overlayContextFile));
             previewPanel.setStampStyle(style);
         } finally {
             restoring = false;
@@ -634,7 +706,13 @@ public class MainFrame extends JFrame {
         try {
             String resolved = PlaceholderResolver.resolve(commentPanel.getText(), original);
             BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style, logoOverlay);
-            File saved = saveService.save(stamped, original.getName());
+            // Neben dem Original im Quellordner speichern (kollisionsfreier neuer Name);
+            // das Original bleibt unberührt.
+            File targetDir = original.getParentFile();
+            SaveService out = targetDir != null
+                    ? new SaveService(targetDir.toPath(), saveService.getQuality())
+                    : saveService;
+            File saved = out.save(stamped, original.getName());
             boolean exifCopied = exifService.copyExif(original, saved);
             iccService.copyIccProfile(original, saved);
             statusLabel.setText("Gespeichert: " + saved.getAbsolutePath()
@@ -662,7 +740,9 @@ public class MainFrame extends JFrame {
                     "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        final File outputDir = new File(batchFolder, BatchService.OUTPUT_SUBDIR);
+        // Zielordner aus dem Stempeltext ableiten (Einzel-Save bleibt unberührt).
+        final File outputDir = new File(batchFolder,
+                BatchService.sanitizeFolderName(commentPanel.getText()));
         int choice = JOptionPane.showConfirmDialog(this,
                 selected.size() + " ausgewählte(s) Bild(er)\nmit demselben Stempel versehen und speichern nach:\n"
                         + outputDir.getAbsolutePath() + " ?",
