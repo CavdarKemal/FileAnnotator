@@ -15,6 +15,12 @@
         <property name="lineSeparator" value="lf_cr_crlf"/>
     </module>
 
+    <!-- Maximale Zeilenlänge 120 Spalten (Importe/lange URLs ausgenommen). -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^import .*|https?://|ftp://"/>
+    </module>
+
     <module name="TreeWalker">
         <module name="RedundantImport"/>
         <module name="UnusedImports"/>
