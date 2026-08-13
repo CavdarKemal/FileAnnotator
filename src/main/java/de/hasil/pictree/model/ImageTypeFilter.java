@@ -34,16 +34,21 @@ public final class ImageTypeFilter {
 
     /** Aktive Gruppennamen (Teilmenge der Schlüssel von {@link #GROUPS}). */
     private final Set<String> activeGroups;
+    /** Vorab berechnete Endungsmenge (unveränderlich) – vermeidet Neuaufbau je Prüfung. */
+    private final Set<String> extensions;
 
     private ImageTypeFilter(Set<String> activeGroups) {
         // Nur bekannte Gruppen, Reihenfolge gemäß GROUPS beibehalten.
         Set<String> filtered = new LinkedHashSet<>();
+        Set<String> exts = new LinkedHashSet<>();
         for (String group : GROUPS.keySet()) {
             if (activeGroups.contains(group)) {
                 filtered.add(group);
+                exts.addAll(GROUPS.get(group));
             }
         }
         this.activeGroups = Collections.unmodifiableSet(filtered);
+        this.extensions = Collections.unmodifiableSet(exts);
     }
 
     /** Filter mit allen Gruppen aktiv (Standard – zeigt alle unterstützten Bildtypen). */
@@ -81,19 +86,20 @@ public final class ImageTypeFilter {
 
     /** Vereinigung der Endungen aller aktiven Gruppen (kleingeschrieben, ohne Punkt). */
     public Set<String> extensions() {
-        Set<String> exts = new LinkedHashSet<>();
-        for (String group : activeGroups) {
-            exts.addAll(GROUPS.get(group));
-        }
-        return Collections.unmodifiableSet(exts);
+        return extensions;
     }
 
-    /** Ist {@code f} eine Bilddatei eines aktiven Typs? */
+    /** Prüft nur die Dateiendung (kein Dateisystem-Zugriff) – für schnelles Baum-Filtern. */
+    public boolean matchesImageName(String fileName) {
+        return extensions.contains(extensionOf(fileName));
+    }
+
+    /** Ist {@code f} eine Bilddatei eines aktiven Typs? Endung zuerst (billig), dann Stat. */
     public boolean acceptsImage(File f) {
-        if (f == null || !f.isFile()) {
+        if (f == null || !extensions.contains(extensionOf(f.getName()))) {
             return false;
         }
-        return extensions().contains(extensionOf(f.getName()));
+        return f.isFile();
     }
 
     /** Baum-Prädikat: Verzeichnisse immer, Dateien nur bei passendem Bildtyp. */

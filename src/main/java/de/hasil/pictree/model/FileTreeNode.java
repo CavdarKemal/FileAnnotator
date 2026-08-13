@@ -2,7 +2,6 @@ package de.hasil.pictree.model;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -13,24 +12,24 @@ import javax.swing.filechooser.FileSystemView;
  * Ein Knoten im Datei-Baum. Kapselt eine {@link File}-Referenz und lädt seine
  * Kinder erst bei Bedarf (lazy). Ordner werden vor Dateien und jeweils
  * alphabetisch (case-insensitive) einsortiert – wie im Windows-Explorer.
+ *
+ * <p>Performance: {@code isDirectory()} (ein Dateisystem-Stat) wird pro Eintrag
+ * genau einmal ermittelt und gecacht; Sortierung und Filter arbeiten danach
+ * ohne weitere Stats. Anzeigename (teurer Shell-Call unter Windows) wird
+ * ebenfalls einmalig berechnet und zwischengespeichert.
  */
 public class FileTreeNode {
-
-    /** Ordner zuerst, dann Dateien; innerhalb der Gruppe alphabetisch. */
-    static final Comparator<File> EXPLORER_ORDER = (a, b) -> {
-        boolean da = a.isDirectory();
-        boolean db = b.isDirectory();
-        if (da != db) {
-            return da ? -1 : 1;
-        }
-        return a.getName().compareToIgnoreCase(b.getName());
-    };
 
     private final File file;
     private final boolean syntheticRoot;
     private final FileSystemView fsv;
     /** Optionaler Bildtyp-Filter; {@code null} = ungefiltert (alle Dateien anzeigen). */
     private final ImageTypeFilter filter;
+
+    /** Cache: ist dieser Knoten ein Verzeichnis? (ein Stat) */
+    private Boolean directory;
+    /** Cache: System-Anzeigename. */
+    private String displayName;
     private List<FileTreeNode> children;
 
     /** Erzeugt den synthetischen Wurzelknoten (listet die Dateisystem-Roots/Laufwerke). */
@@ -73,12 +72,20 @@ public class FileTreeNode {
         return syntheticRoot;
     }
 
+    /** Ist dieser Knoten ein Verzeichnis? Ergebnis wird gecacht (ein Stat). */
+    private boolean isDirectory() {
+        if (directory == null) {
+            directory = file != null && file.isDirectory();
+        }
+        return directory;
+    }
+
     /** Ein Blatt ist alles, was kein Verzeichnis ist. Der Wurzelknoten ist nie ein Blatt. */
     public boolean isLeaf() {
         if (syntheticRoot) {
             return false;
         }
-        return !file.isDirectory();
+        return !isDirectory();
     }
 
     /** Lazy geladene, sortierte Kinderliste. Bei fehlendem Zugriff leer. */
@@ -102,54 +109,73 @@ public class FileTreeNode {
     }
 
     private List<FileTreeNode> loadChildren() {
-        File[] raw;
         if (syntheticRoot) {
-            // Laufwerke als oberste Ebene – ermöglicht verlässliche Pfadnavigation.
-            raw = File.listRoots();
-            if (raw == null || raw.length == 0) {
-                raw = fsv.getRoots();
+            File[] roots = File.listRoots();
+            if (roots == null || roots.length == 0) {
+                roots = fsv.getRoots();
             }
-        } else if (file.isDirectory()) {
-            raw = file.listFiles();
-        } else {
-            raw = null;
+            if (roots == null) {
+                return Collections.emptyList();
+            }
+            // Laufwerke sind bereits sinnvoll sortiert und stets Verzeichnisse.
+            List<FileTreeNode> result = new ArrayList<>(roots.length);
+            for (File f : roots) {
+                result.add(childNode(f, Boolean.TRUE));
+            }
+            return result;
         }
-        if (raw == null) {
+        if (!isDirectory()) {
             return Collections.emptyList();
         }
-        File[] sorted = Arrays.copyOf(raw, raw.length);
-        // Der synthetische Root liefert bereits sinnvoll sortierte Roots; nur Verzeichnisinhalte sortieren.
-        if (!syntheticRoot) {
-            Arrays.sort(sorted, EXPLORER_ORDER);
+        File[] entries = file.listFiles();
+        if (entries == null) {
+            return Collections.emptyList();
         }
-        List<FileTreeNode> result = new ArrayList<>(sorted.length);
-        for (File f : sorted) {
-            // Sidecar-Dateien der Annotationen nicht im Baum anzeigen.
-            if (f.getName().endsWith(".pictree.properties")) {
+        // Ein isDirectory()-Stat pro Eintrag; danach ohne weitere Stats filtern und sortieren.
+        List<Entry> kept = new ArrayList<>(entries.length);
+        for (File f : entries) {
+            String name = f.getName();
+            if (name.endsWith(".pictree.properties")) {
+                continue; // Annotations-Sidecar nicht anzeigen.
+            }
+            boolean isDir = f.isDirectory();
+            // Bildtyp-Filter: Verzeichnisse immer; Dateien nur passende Bildendungen (kein Stat).
+            if (!isDir && filter != null && !filter.matchesImageName(name)) {
                 continue;
             }
-            // Bildtyp-Filter (falls gesetzt): Verzeichnisse immer, Dateien nur passende Bilder.
-            if (filter != null && !filter.acceptsInTree(f)) {
-                continue;
-            }
-            result.add(new FileTreeNode(f, false, fsv, filter));
+            kept.add(new Entry(f, isDir, name));
+        }
+        kept.sort(ENTRY_ORDER);
+        List<FileTreeNode> result = new ArrayList<>(kept.size());
+        for (Entry e : kept) {
+            result.add(childNode(e.file, e.isDir));
         }
         return result;
     }
 
-    /** Anzeigename gemäß System (z. B. "Lokaler Datenträger (C:)"). */
+    /** Erzeugt einen Kindknoten mit bereits bekanntem Verzeichnis-Status (spart einen Stat). */
+    private FileTreeNode childNode(File f, Boolean isDir) {
+        FileTreeNode node = new FileTreeNode(f, false, fsv, filter);
+        node.directory = isDir;
+        return node;
+    }
+
+    /** Anzeigename gemäß System (z. B. "Lokaler Datenträger (C:)"), einmalig ermittelt. */
     public String getDisplayName() {
         if (syntheticRoot) {
             return "Dieser PC";
         }
-        String name = fsv.getSystemDisplayName(file);
-        if (name == null || name.isBlank()) {
-            name = file.getName();
+        if (displayName == null) {
+            String name = fsv.getSystemDisplayName(file);
+            if (name == null || name.isBlank()) {
+                name = file.getName();
+            }
+            if (name == null || name.isBlank()) {
+                name = file.getAbsolutePath();
+            }
+            displayName = name;
         }
-        if (name == null || name.isBlank()) {
-            name = file.getAbsolutePath();
-        }
-        return name;
+        return displayName;
     }
 
     @Override
@@ -178,4 +204,25 @@ public class FileTreeNode {
     public int hashCode() {
         return file == null ? Boolean.hashCode(syntheticRoot) : file.hashCode();
     }
+
+    /** Vorsortier-Eintrag mit vorab ermitteltem Verzeichnis-Status – vermeidet Stats im Comparator. */
+    private static final class Entry {
+        final File file;
+        final boolean isDir;
+        final String name;
+
+        Entry(File file, boolean isDir, String name) {
+            this.file = file;
+            this.isDir = isDir;
+            this.name = name;
+        }
+    }
+
+    /** Ordner zuerst, dann Dateien; innerhalb der Gruppe alphabetisch (ohne Dateisystem-Stats). */
+    private static final Comparator<Entry> ENTRY_ORDER = (a, b) -> {
+        if (a.isDir != b.isDir) {
+            return a.isDir ? -1 : 1;
+        }
+        return a.name.compareToIgnoreCase(b.name);
+    };
 }

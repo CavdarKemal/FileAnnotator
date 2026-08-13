@@ -41,9 +41,12 @@ public class ThumbnailStripPanel extends JPanel {
     /** Kantenlänge der Thumbnails in Pixeln. */
     static final int THUMB_SIZE = 120;
     private static final int STRIP_HEIGHT = 172;
+    /** Obergrenze angezeigter Thumbnails – schützt den EDT bei sehr großen Ordnern. */
+    static final int MAX_THUMBS = 500;
 
     private final JPanel strip = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
     private final JCheckBox allBox = new JCheckBox(I18n.t("thumbnails.all"), true);
+    private final JLabel capLabel = new JLabel();
     private final List<Cell> cells = new ArrayList<>();
     private final transient ImageIcon placeholder = createPlaceholder();
 
@@ -65,6 +68,7 @@ public class ThumbnailStripPanel extends JPanel {
             fireSelectionChanged();
         });
         top.add(allBox);
+        top.add(capLabel);
         add(top, BorderLayout.NORTH);
 
         JScrollPane scroll = new JScrollPane(strip, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
@@ -82,18 +86,22 @@ public class ThumbnailStripPanel extends JPanel {
 
         cells.clear();
         strip.removeAll();
-        for (File f : images) {
-            Cell cell = new Cell(f);
+        int shown = Math.min(images.size(), MAX_THUMBS);
+        for (int i = 0; i < shown; i++) {
+            Cell cell = new Cell(images.get(i));
             cells.add(cell);
             strip.add(cell.panel);
         }
-        allBox.setSelected(!cells.isEmpty());
+        allBox.setSelected(shown > 0);
+        capLabel.setText(images.size() > MAX_THUMBS
+                ? String.format(I18n.t("thumbnails.capped"), MAX_THUMBS, images.size())
+                : "");
         strip.revalidate();
         strip.repaint();
         fireSelectionChanged();
 
-        if (!images.isEmpty()) {
-            startLoading(generation, new ArrayList<>(images));
+        if (shown > 0) {
+            startLoading(generation, new ArrayList<>(images.subList(0, shown)));
         }
     }
 
