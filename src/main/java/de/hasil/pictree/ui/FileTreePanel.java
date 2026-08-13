@@ -118,6 +118,18 @@ public class FileTreePanel extends JScrollPane {
         return true;
     }
 
+    /**
+     * Ersetzt das Baum-Modell (z. B. nach einer Filteränderung) und stellt – so
+     * weit erreichbar – die zuvor selektierte Datei/den Ordner wieder her.
+     */
+    public void rebuildPreservingSelection(LazyFileTreeModel newModel) {
+        File previouslySelected = getSelectedFile();
+        tree.setModel(newModel);
+        if (previouslySelected != null) {
+            selectPath(previouslySelected);
+        }
+    }
+
     public JTree getTree() {
         return tree;
     }

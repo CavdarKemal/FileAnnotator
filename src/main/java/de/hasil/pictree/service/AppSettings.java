@@ -13,6 +13,7 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import de.hasil.pictree.model.ImageTypeFilter;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.util.Logging;
 
@@ -131,6 +132,17 @@ public class AppSettings {
 
     public void setTargetDir(String path) {
         props.setProperty("targetDir", path == null ? "" : path);
+    }
+
+    // --- Explorer-Filter -----------------------------------------------------
+
+    /** Aktiver Bildtyp-Filter für Baum, Thumbnail-Streifen und Stapel. */
+    public ImageTypeFilter getImageTypeFilter() {
+        return ImageTypeFilter.decode(props.getProperty("imageFilter", ""));
+    }
+
+    public void setImageTypeFilter(ImageTypeFilter filter) {
+        props.setProperty("imageFilter", filter == null ? "" : filter.encode());
     }
 
     // --- Speichern -----------------------------------------------------------

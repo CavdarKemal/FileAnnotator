@@ -42,6 +42,20 @@ class BatchServiceTest {
     }
 
     @Test
+    void listImagesRespectsTypeFilter(@TempDir Path src) throws Exception {
+        writeJpeg(src, "foto.jpg", 10, 10);
+        ImageIO.write(new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB), "png",
+                src.resolve("grafik.png").toFile());
+
+        de.hasil.pictree.model.ImageTypeFilter jpegOnly = de.hasil.pictree.model.ImageTypeFilter.all()
+                .withGroup("PNG", false).withGroup("GIF", false)
+                .withGroup("BMP", false).withGroup("TIFF", false);
+        var images = BatchService.listImages(src.toFile(), jpegOnly);
+        assertEquals(1, images.size());
+        assertEquals("foto.jpg", images.get(0).getName());
+    }
+
+    @Test
     void processesAllImagesAndSkipsNonImages(@TempDir Path src, @TempDir Path album) throws Exception {
         writeJpeg(src, "one.jpg", 40, 30);
         writeJpeg(src, "two.jpg", 30, 40);
@@ -67,11 +81,64 @@ class BatchServiceTest {
         // Fehlgeschlagenes Bild trägt eine Begründung.
         assertFalse(result.failed().get(0).reason().isBlank());
 
+        // Ergebnisse landen im Unterordner "_stamped" des Quellordners, nicht im Album-Ordner.
+        Path stamped = src.resolve(BatchService.OUTPUT_SUBDIR);
+        assertEquals(stamped, result.outputDir().toPath());
         for (File out : result.saved()) {
             assertTrue(out.exists());
             assertTrue(out.getName().endsWith(".jpg"));
-            assertEquals(album, out.getParentFile().toPath());
+            assertEquals(stamped, out.getParentFile().toPath());
         }
+    }
+
+    @Test
+    void writesIntoStampedSubfolderAndLeavesOriginalsUntouched(@TempDir Path src, @TempDir Path album)
+            throws Exception {
+        writeJpeg(src, "a.jpg", 20, 20);
+        writeJpeg(src, "b.jpg", 20, 20);
+        long originalCount = Files.list(src).filter(Files::isRegularFile).count();
+
+        BatchService service = newService(album);
+        BatchService.BatchResult r = service.processFolder(src.toFile(), "S", new StampStyle(), null);
+
+        assertEquals(2, r.saved().size());
+        assertTrue(Files.isDirectory(src.resolve("_stamped")));
+        // Originale unverändert (gleiche Anzahl regulärer Dateien direkt im Quellordner).
+        assertEquals(originalCount, Files.list(src).filter(Files::isRegularFile).count());
+        // Album-Ordner bleibt leer.
+        assertFalse(Files.exists(album) && Files.list(album).findAny().isPresent());
+    }
+
+    @Test
+    void processFilesUsesGivenOutputDirAndSubset(@TempDir Path src, @TempDir Path out, @TempDir Path album)
+            throws Exception {
+        writeJpeg(src, "a.jpg", 20, 20);
+        writeJpeg(src, "b.jpg", 20, 20);
+        writeJpeg(src, "c.jpg", 20, 20);
+
+        BatchService service = newService(album);
+        var subset = java.util.List.of(src.resolve("a.jpg").toFile(), src.resolve("c.jpg").toFile());
+        BatchService.BatchResult r = service.processFiles(
+                subset, out.toFile(), "S", new StampStyle(), null, null);
+
+        assertEquals(2, r.saved().size());
+        assertEquals(out.toFile(), r.outputDir());
+        for (File f : r.saved()) {
+            assertEquals(out, f.getParentFile().toPath());
+        }
+    }
+
+    @Test
+    void secondRunDoesNotReprocessStampedOutput(@TempDir Path src, @TempDir Path album) throws Exception {
+        writeJpeg(src, "a.jpg", 20, 20);
+        BatchService service = newService(album);
+
+        service.processFolder(src.toFile(), "S", new StampStyle(), null);
+        // Zweiter Lauf: listImages ist nicht rekursiv -> nur das Original, nicht die _stamped-Ausgabe.
+        BatchService.BatchResult second = service.processFolder(src.toFile(), "S", new StampStyle(), null);
+        assertEquals(1, second.saved().size());
+        // Kollisionsfreie Namensvergabe -> zweite Ausgabe mit Suffix.
+        assertTrue(second.saved().get(0).getName().matches("a(-\\d+)?\\.jpg"));
     }
 
     @Test

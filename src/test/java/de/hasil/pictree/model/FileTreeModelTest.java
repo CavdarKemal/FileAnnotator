@@ -55,6 +55,33 @@ class FileTreeModelTest {
     }
 
     @Test
+    void filterHidesNonMatchingImagesKeepsFoldersAndDropsNonImages(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("foto.jpg"), "x");
+        Files.writeString(dir.resolve("grafik.png"), "x");
+        Files.writeString(dir.resolve("notiz.txt"), "x");
+        Files.createDirectory(dir.resolve("unterordner"));
+
+        // Filter: nur JPEG -> png und txt verschwinden, Ordner bleibt.
+        ImageTypeFilter jpegOnly = ImageTypeFilter.all()
+                .withGroup("PNG", false).withGroup("GIF", false)
+                .withGroup("BMP", false).withGroup("TIFF", false);
+        FileTreeNode root = FileTreeNode.forDirectory(dir.toFile(), jpegOnly);
+
+        assertEquals(2, root.getChildCount());
+        assertEquals("unterordner", root.getChildAt(0).getFile().getName());
+        assertEquals("foto.jpg", root.getChildAt(1).getFile().getName());
+    }
+
+    @Test
+    void unfilteredFactoryStillShowsAllFiles(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("notiz.txt"), "x");
+        Files.writeString(dir.resolve("foto.jpg"), "x");
+        // Alte, filterlose Factory zeigt weiterhin auch Nicht-Bilder.
+        FileTreeNode root = FileTreeNode.forDirectory(dir.toFile());
+        assertEquals(2, root.getChildCount());
+    }
+
+    @Test
     void syntheticRootExposesFilesystemRoots() {
         FileTreeNode computer = FileTreeNode.createComputerRoot();
         assertTrue(computer.isSyntheticRoot());

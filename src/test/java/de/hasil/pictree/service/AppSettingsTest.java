@@ -10,9 +10,29 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.hasil.pictree.model.ImageTypeFilter;
 import de.hasil.pictree.model.StampStyle;
 
 class AppSettingsTest {
+
+    @Test
+    void imageTypeFilterDefaultsToAll(@TempDir Path dir) {
+        AppSettings s = new AppSettings(dir.resolve("settings.properties"));
+        assertEquals(ImageTypeFilter.all(), s.getImageTypeFilter());
+    }
+
+    @Test
+    void imageTypeFilterRoundTrip(@TempDir Path dir) {
+        Path file = dir.resolve("settings.properties");
+        AppSettings s = new AppSettings(file);
+        ImageTypeFilter jpegPng = ImageTypeFilter.all()
+                .withGroup("GIF", false).withGroup("BMP", false).withGroup("TIFF", false);
+        s.setImageTypeFilter(jpegPng);
+        s.save();
+
+        AppSettings reloaded = new AppSettings(file).load();
+        assertEquals(jpegPng, reloaded.getImageTypeFilter());
+    }
 
     @Test
     void defaultsAreSensible(@TempDir Path dir) {

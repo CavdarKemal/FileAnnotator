@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import de.hasil.pictree.model.ImageTypeFilter;
 import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.util.Logging;
@@ -25,8 +26,11 @@ public class BatchService {
     public record Failure(File file, String reason) {
     }
 
-    /** Ergebnis eines Stapellaufs. */
-    public record BatchResult(List<File> saved, List<Failure> failed) {
+    /** Unterordner im Quellordner, in den die gestempelten Bilder geschrieben werden. */
+    public static final String OUTPUT_SUBDIR = "_stamped";
+
+    /** Ergebnis eines Stapellaufs inkl. tatsächlichem Zielordner. */
+    public record BatchResult(List<File> saved, List<Failure> failed, File outputDir) {
         public int total() {
             return saved.size() + failed.size();
         }
@@ -51,10 +55,20 @@ public class BatchService {
 
     /** Listet die (nicht-rekursiven) Bilddateien eines Ordners, alphabetisch sortiert. */
     public static List<File> listImages(File folder) {
+        return listImages(folder, null);
+    }
+
+    /**
+     * Wie {@link #listImages(File)}, beschränkt aber auf die vom {@code filter}
+     * zugelassenen Bildtypen. {@code filter == null} bedeutet: alle unterstützten
+     * Bildformate.
+     */
+    public static List<File> listImages(File folder, ImageTypeFilter filter) {
         if (folder == null || !folder.isDirectory()) {
             return List.of();
         }
-        File[] files = folder.listFiles(ImageSupport::isImageFile);
+        java.io.FileFilter accept = filter == null ? ImageSupport::isImageFile : filter::acceptsImage;
+        File[] files = folder.listFiles(accept);
         if (files == null) {
             return List.of();
         }
@@ -64,7 +78,9 @@ public class BatchService {
     }
 
     /**
-     * Verarbeitet alle Bilder in {@code folder}.
+     * Verarbeitet alle Bilder in {@code folder}. Die Ergebnisse landen im
+     * Unterordner {@link #OUTPUT_SUBDIR} des Quellordners; die Originale bleiben
+     * unberührt.
      *
      * @param folder Quellordner
      * @param text   Stempeltext
@@ -78,7 +94,27 @@ public class BatchService {
     /** Wie oben, zusätzlich mit optionalem Logo-Overlay. */
     public BatchResult processFolder(File folder, String text, StampStyle style, LogoOverlay logo,
             ProgressCallback cb) {
-        List<File> images = listImages(folder);
+        File outputDir = new File(folder, OUTPUT_SUBDIR);
+        return processFiles(listImages(folder), outputDir, text, style, logo, cb);
+    }
+
+    /**
+     * Verarbeitet eine explizite Liste von Bildern und schreibt die Ergebnisse
+     * nach {@code outputDir}. Grundlage für die Stapelverarbeitung einer im
+     * Thumbnail-Streifen getroffenen Auswahl.
+     *
+     * @param images    zu stempelnde Bilddateien
+     * @param outputDir Zielordner (wird bei Bedarf angelegt)
+     * @param text      Stempeltext
+     * @param style     Stil/relative Position (für alle Bilder identisch)
+     * @param logo      optionales Logo-Overlay (darf {@code null} sein)
+     * @param cb        optionaler Fortschritts-Callback (darf {@code null} sein)
+     */
+    public BatchResult processFiles(List<File> images, File outputDir, String text, StampStyle style,
+            LogoOverlay logo, ProgressCallback cb) {
+        // Eigener SaveService pro Lauf: schreibt in den gewählten Zielordner,
+        // nicht in den Album-Ordner des geteilten saveService.
+        SaveService out = new SaveService(outputDir.toPath(), saveService.getQuality());
         List<File> saved = new ArrayList<>();
         List<Failure> failed = new ArrayList<>();
 
@@ -95,7 +131,7 @@ public class BatchService {
                     // Platzhalter je Bild auflösen (z. B. {datum}, {dateiname}).
                     String resolved = PlaceholderResolver.resolve(text, image);
                     BufferedImage stamped = ImageStampService.renderStamp(src, resolved, style, logo);
-                    outFile = saveService.save(stamped, image.getName());
+                    outFile = out.save(stamped, image.getName());
                     exifService.copyExif(image, outFile);
                     iccService.copyIccProfile(image, outFile);
                     saved.add(outFile);
@@ -109,6 +145,6 @@ public class BatchService {
                 cb.onProgress(done, total, image, outFile);
             }
         }
-        return new BatchResult(saved, failed);
+        return new BatchResult(saved, failed, outputDir);
     }
 }

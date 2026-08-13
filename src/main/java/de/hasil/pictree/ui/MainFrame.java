@@ -35,6 +35,9 @@ import javax.swing.SwingWorker;
 import de.hasil.pictree.App;
 import de.hasil.pictree.model.Annotation;
 import de.hasil.pictree.model.EditState;
+import de.hasil.pictree.model.FileTreeNode;
+import de.hasil.pictree.model.ImageTypeFilter;
+import de.hasil.pictree.model.LazyFileTreeModel;
 import de.hasil.pictree.model.LogoOverlay;
 import de.hasil.pictree.model.StampStyle;
 import de.hasil.pictree.service.AnnotationStore;
@@ -62,6 +65,8 @@ public class MainFrame extends JFrame {
 
     private final FileTreePanel treePanel;
     private final PreviewPanel previewPanel;
+    private final ThumbnailStripPanel thumbnailStrip;
+    private final FileFilterControl filterControl;
     private final StyleToolbar styleToolbar;
     private final EffectsToolbar effectsToolbar;
     private final CommentPanel commentPanel;
@@ -75,6 +80,10 @@ public class MainFrame extends JFrame {
     private final AnnotationStore annotationStore = new AnnotationStore();
 
     private File selectedFolder;
+    /** Ordner, dessen Bilder aktuell im Thumbnail-Streifen liegen (Ziel des Stapels). */
+    private File batchFolder;
+    /** Aktiver Bildtyp-Filter für Baum, Streifen und Stapel. */
+    private ImageTypeFilter imageFilter;
     /** Aktuell angezeigtes Bild, dessen Annotation bearbeitet wird (oder null). */
     private File annotatedImage;
     private final JMenu recentMenu = new JMenu("Zuletzt verwendet");
@@ -104,9 +113,12 @@ public class MainFrame extends JFrame {
         setSize(settings.getWindowWidth(), settings.getWindowHeight());
         setLocationByPlatform(true);
 
-        treePanel = new FileTreePanel();
+        this.imageFilter = settings.getImageTypeFilter();
+        treePanel = new FileTreePanel(new LazyFileTreeModel(FileTreeNode.createComputerRoot(imageFilter)));
+        filterControl = new FileFilterControl(imageFilter, this::onFilterChanged);
         previewPanel = new PreviewPanel();
         previewPanel.setStampStyle(style);
+        thumbnailStrip = new ThumbnailStripPanel();
         commentPanel = new CommentPanel();
         statusLabel = new JLabel(I18n.t("status.noSelection"));
         styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
@@ -121,17 +133,28 @@ public class MainFrame extends JFrame {
         toolbars.add(styleToolbar);
         toolbars.add(effectsToolbar);
 
+        // Toolbars oben, darunter der Thumbnail-Streifen – zusammen als NORTH-Bereich.
+        JPanel northStack = new JPanel(new BorderLayout());
+        northStack.add(toolbars, BorderLayout.NORTH);
+        northStack.add(thumbnailStrip, BorderLayout.CENTER);
+
         JPanel rightPanel = new JPanel(new BorderLayout());
-        rightPanel.add(toolbars, BorderLayout.NORTH);
+        rightPanel.add(northStack, BorderLayout.NORTH);
         rightPanel.add(previewPanel, BorderLayout.CENTER);
         rightPanel.add(southPanel, BorderLayout.SOUTH);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePanel, rightPanel);
+        // Links: Filter-Steuerung über dem Datei-Baum.
+        JPanel leftPanel = new JPanel(new BorderLayout());
+        leftPanel.add(filterControl, BorderLayout.NORTH);
+        leftPanel.add(treePanel, BorderLayout.CENTER);
+
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
         split.setDividerLocation(320);
         setContentPane(split);
         setJMenuBar(buildMenuBar());
 
         treePanel.addFileSelectionListener(this::onSelectionChanged);
+        thumbnailStrip.setThumbnailClickListener(this::onThumbnailPicked);
         commentPanel.addTextChangeListener(this::onCommentChanged);
         commentPanel.getSaveButton().addActionListener(e -> onSave());
         commentPanel.getBatchButton().addActionListener(e -> onBatch());
@@ -157,20 +180,31 @@ public class MainFrame extends JFrame {
         // Zustand des bisher angezeigten Bildes sichern, bevor umgeschaltet wird.
         persistCurrentAnnotation();
 
+        selectedFolder = (file != null && file.isDirectory()) ? file : null;
+        // Ordner, dessen Bilder in den Streifen kommen: Ordnerauswahl oder Elternordner eines Bildes.
+        batchFolder = selectedFolder != null ? selectedFolder
+                : (file != null ? file.getParentFile() : null);
+        updateThumbnailStrip();
+
+        // Ordner für "Zuletzt verwendet" merken.
+        if (batchFolder != null) {
+            settings.addRecentFolder(batchFolder.getAbsolutePath());
+            updateRecentMenu();
+        }
+
+        showImageForEditing(file);
+    }
+
+    /**
+     * Wechselt das angezeigte Bild und stellt dessen Annotation wieder her –
+     * ohne Baum-Selektion oder Thumbnail-Streifen zu verändern. Gemeinsame Basis
+     * für Baum-Selektion und Thumbnail-Klick.
+     */
+    private void showImageForEditing(File file) {
         previewPanel.showFile(file);
         boolean isImage = previewPanel.hasImage();
         commentPanel.getSaveButton().setEnabled(isImage);
-        selectedFolder = (file != null && file.isDirectory()) ? file : null;
-        commentPanel.getBatchButton().setEnabled(selectedFolder != null);
         statusLabel.setText(file == null ? I18n.t("status.noSelection") : file.getAbsolutePath());
-
-        // Ordner für "Zuletzt verwendet" merken (Ordnerauswahl oder Elternordner eines Bildes).
-        File folderToRemember = selectedFolder != null ? selectedFolder
-                : (file != null ? file.getParentFile() : null);
-        if (folderToRemember != null) {
-            settings.addRecentFolder(folderToRemember.getAbsolutePath());
-            updateRecentMenu();
-        }
 
         // Beim Umschalten keine Undo-Schritte aufzeichnen; danach Historie neu starten.
         restoring = true;
@@ -187,6 +221,36 @@ public class MainFrame extends JFrame {
         }
         history.reset(currentEditState());
         updateUndoRedoState();
+    }
+
+    /** Klick auf ein Thumbnail: Bild anzeigen/bearbeiten, ohne die Auswahl im Streifen zu berühren. */
+    private void onThumbnailPicked(File file) {
+        persistCurrentAnnotation();
+        showImageForEditing(file);
+    }
+
+    /** Befüllt den Thumbnail-Streifen mit den (gefilterten) Bildern von {@link #batchFolder}. */
+    private void updateThumbnailStrip() {
+        if (batchFolder != null) {
+            thumbnailStrip.setImages(BatchService.listImages(batchFolder, imageFilter));
+        } else {
+            thumbnailStrip.clear();
+        }
+        updateBatchButtonEnable();
+    }
+
+    /** Der Stapel-Button ist aktiv, sobald der Streifen mindestens ein Bild zeigt. */
+    private void updateBatchButtonEnable() {
+        commentPanel.getBatchButton().setEnabled(batchFolder != null && thumbnailStrip.getImageCount() > 0);
+    }
+
+    /** Filteränderung: persistieren, Baum neu aufbauen (Selektion erhalten), Streifen aktualisieren. */
+    private void onFilterChanged(ImageTypeFilter filter) {
+        imageFilter = filter;
+        settings.setImageTypeFilter(filter);
+        treePanel.rebuildPreservingSelection(
+                new LazyFileTreeModel(FileTreeNode.createComputerRoot(filter)));
+        updateThumbnailStrip();
     }
 
     /** Lädt eine vorhandene Annotation und stellt Text, Stil und Position wieder her. */
@@ -587,25 +651,26 @@ public class MainFrame extends JFrame {
     }
 
     private void onBatch() {
-        if (selectedFolder == null) {
-            return;
-        }
-        int count = BatchService.listImages(selectedFolder).size();
-        if (count == 0) {
-            JOptionPane.showMessageDialog(this,
-                    "Im Ordner wurden keine Bilder gefunden:\n" + selectedFolder.getAbsolutePath(),
+        if (batchFolder == null) {
+            JOptionPane.showMessageDialog(this, I18n.t("batch.noFolder"),
                     "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
+        final java.util.List<File> selected = thumbnailStrip.getSelectedImages();
+        if (selected.isEmpty()) {
+            JOptionPane.showMessageDialog(this, I18n.t("batch.noSelection"),
+                    "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        final File outputDir = new File(batchFolder, BatchService.OUTPUT_SUBDIR);
         int choice = JOptionPane.showConfirmDialog(this,
-                count + " Bild(er) in\n" + selectedFolder.getAbsolutePath()
-                        + "\nmit demselben Stempel versehen und speichern?",
+                selected.size() + " ausgewählte(s) Bild(er)\nmit demselben Stempel versehen und speichern nach:\n"
+                        + outputDir.getAbsolutePath() + " ?",
                 "Stapelverarbeitung", JOptionPane.OK_CANCEL_OPTION);
         if (choice != JOptionPane.OK_OPTION) {
             return;
         }
 
-        final File folder = selectedFolder;
         final String text = commentPanel.getText();
         final StampStyle snapshot = style.copy();
         final LogoOverlay logoSnapshot = logoOverlay;
@@ -614,7 +679,7 @@ public class MainFrame extends JFrame {
         new SwingWorker<BatchService.BatchResult, String>() {
             @Override
             protected BatchService.BatchResult doInBackground() {
-                return batchService.processFolder(folder, text, snapshot, logoSnapshot,
+                return batchService.processFiles(selected, outputDir, text, snapshot, logoSnapshot,
                         (done, total, current, saved) ->
                         publish("Stapel: " + done + "/" + total + " – " + current.getName()));
             }
@@ -626,7 +691,7 @@ public class MainFrame extends JFrame {
 
             @Override
             protected void done() {
-                commentPanel.getBatchButton().setEnabled(selectedFolder != null);
+                updateBatchButtonEnable();
                 try {
                     BatchService.BatchResult result = get();
                     statusLabel.setText("Stapel fertig: " + result.saved().size() + " gespeichert, "
@@ -645,7 +710,7 @@ public class MainFrame extends JFrame {
     private void showBatchResult(BatchService.BatchResult result) {
         String header = "Stapelverarbeitung abgeschlossen.\n"
                 + result.saved().size() + " Bild(er) gespeichert nach:\n"
-                + saveService.getTargetDir() + "\n"
+                + result.outputDir() + "\n"
                 + result.failed().size() + " fehlgeschlagen.";
         if (result.failed().isEmpty()) {
             JOptionPane.showMessageDialog(this, header, "Stapelverarbeitung",

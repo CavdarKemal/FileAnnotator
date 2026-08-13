@@ -29,22 +29,39 @@ public class FileTreeNode {
     private final File file;
     private final boolean syntheticRoot;
     private final FileSystemView fsv;
+    /** Optionaler Bildtyp-Filter; {@code null} = ungefiltert (alle Dateien anzeigen). */
+    private final ImageTypeFilter filter;
     private List<FileTreeNode> children;
 
     /** Erzeugt den synthetischen Wurzelknoten (listet die Dateisystem-Roots/Laufwerke). */
     public static FileTreeNode createComputerRoot() {
-        return new FileTreeNode(null, true, FileSystemView.getFileSystemView());
+        return createComputerRoot(null);
+    }
+
+    /** Wie {@link #createComputerRoot()}, aber mit Bildtyp-Filter für die Kinderlisten. */
+    public static FileTreeNode createComputerRoot(ImageTypeFilter filter) {
+        return new FileTreeNode(null, true, FileSystemView.getFileSystemView(), filter);
     }
 
     /** Erzeugt einen Knoten für ein konkretes Verzeichnis (z. B. für Tests). */
     public static FileTreeNode forDirectory(File dir) {
-        return new FileTreeNode(dir, false, FileSystemView.getFileSystemView());
+        return forDirectory(dir, null);
+    }
+
+    /** Wie {@link #forDirectory(File)}, aber mit Bildtyp-Filter. */
+    public static FileTreeNode forDirectory(File dir, ImageTypeFilter filter) {
+        return new FileTreeNode(dir, false, FileSystemView.getFileSystemView(), filter);
     }
 
     FileTreeNode(File file, boolean syntheticRoot, FileSystemView fsv) {
+        this(file, syntheticRoot, fsv, null);
+    }
+
+    FileTreeNode(File file, boolean syntheticRoot, FileSystemView fsv, ImageTypeFilter filter) {
         this.file = file;
         this.syntheticRoot = syntheticRoot;
         this.fsv = fsv;
+        this.filter = filter;
     }
 
     /** Die gekapselte Datei; {@code null} beim synthetischen Wurzelknoten. */
@@ -111,7 +128,11 @@ public class FileTreeNode {
             if (f.getName().endsWith(".pictree.properties")) {
                 continue;
             }
-            result.add(new FileTreeNode(f, false, fsv));
+            // Bildtyp-Filter (falls gesetzt): Verzeichnisse immer, Dateien nur passende Bilder.
+            if (filter != null && !filter.acceptsInTree(f)) {
+                continue;
+            }
+            result.add(new FileTreeNode(f, false, fsv, filter));
         }
         return result;
     }
