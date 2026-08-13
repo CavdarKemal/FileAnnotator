@@ -44,8 +44,7 @@ class GoldenImageTest {
             }
         }
         double fraction = (double) differing / total;
-        assertTrue(fraction < 0.03,
-                "Zu viele abweichende Pixel: " + String.format("%.4f", fraction));
+        assertTrue(fraction < 0.03, "Zu viele abweichende Pixel: " + String.format("%.4f", fraction));
     }
 
     private static int channelMaxDiff(int a, int b) {

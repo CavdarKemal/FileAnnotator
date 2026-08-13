@@ -69,8 +69,7 @@ public final class PreviewGeometry {
      *
      * @return {@code [panX, panY]}
      */
-    public static int[] panForZoomAbout(Rectangle base, double zoom, int cursorX, int cursorY,
-            double fx, double fy) {
+    public static int[] panForZoomAbout(Rectangle base, double zoom, int cursorX, int cursorY, double fx, double fy) {
         int w = Math.max(1, (int) Math.round(base.width * zoom));
         int h = Math.max(1, (int) Math.round(base.height * zoom));
         int panX = cursorX - (int) Math.round(fx * w) - base.x - (base.width - w) / 2;
@@ -82,8 +81,7 @@ public final class PreviewGeometry {
     public static Rectangle insetRect(Rectangle r, double fraction) {
         int dx = (int) Math.round(r.width * fraction);
         int dy = (int) Math.round(r.height * fraction);
-        return new Rectangle(r.x + dx, r.y + dy,
-                Math.max(0, r.width - 2 * dx), Math.max(0, r.height - 2 * dy));
+        return new Rectangle(r.x + dx, r.y + dy, Math.max(0, r.width - 2 * dx), Math.max(0, r.height - 2 * dy));
     }
 
     private static double clamp01(double v) {

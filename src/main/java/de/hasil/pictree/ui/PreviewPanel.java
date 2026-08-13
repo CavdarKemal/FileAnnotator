@@ -122,8 +122,7 @@ public class PreviewPanel extends JPanel {
             public void mousePressed(MouseEvent e) {
                 requestFocusInWindow();
                 // Mittlere/rechte Maustaste (oder Strg+links) verschiebt die Ansicht (Pan).
-                boolean panButton = e.getButton() == MouseEvent.BUTTON2
-                        || e.getButton() == MouseEvent.BUTTON3
+                boolean panButton = e.getButton() == MouseEvent.BUTTON2 || e.getButton() == MouseEvent.BUTTON3
                         || (e.getButton() == MouseEvent.BUTTON1 && e.isControlDown());
                 if (panButton && hasImage() && zoom > MIN_ZOOM) {
                     panning = true;
@@ -292,8 +291,7 @@ public class PreviewPanel extends JPanel {
     }
 
     private void bindNudge(String name, int keyCode, int modifiers, int dx, int dy, int stepPx) {
-        getInputMap(JComponent.WHEN_FOCUSED)
-                .put(KeyStroke.getKeyStroke(keyCode, modifiers), name);
+        getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(keyCode, modifiers), name);
         getActionMap().put(name, new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -432,8 +430,7 @@ public class PreviewPanel extends JPanel {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g.create();
         try {
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
             if (image == null) {
                 paintPlaceholder(g2);
@@ -467,8 +464,7 @@ public class PreviewPanel extends JPanel {
             return;
         }
         g2.setColor(new Color(0, 150, 255, 160));
-        g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
-                10f, new float[] {4f, 4f}, 0f));
+        g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] {4f, 4f}, 0f));
         g2.drawRect(r.x, r.y, r.width, r.height);
 
         Rectangle h = resizeHandleRect();
@@ -501,16 +497,13 @@ public class PreviewPanel extends JPanel {
     private void paintSafeArea(Graphics2D g2, Rectangle fit) {
         Rectangle safe = PreviewGeometry.insetRect(fit, SAFE_AREA_MARGIN);
         g2.setColor(new Color(255, 255, 255, 140));
-        g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
-                10f, new float[] {6f, 6f}, 0f));
+        g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] {6f, 6f}, 0f));
         g2.drawRect(safe.x, safe.y, safe.width, safe.height);
     }
 
     private void paintPlaceholder(Graphics2D g2) {
         g2.setColor(Color.LIGHT_GRAY);
-        String msg = currentFile == null
-                ? "Keine Datei ausgewählt."
-                : "Keine Bildvorschau: " + currentFile.getName();
+        String msg = currentFile == null ? "Keine Datei ausgewählt." : "Keine Bildvorschau: " + currentFile.getName();
         int tw = g2.getFontMetrics().stringWidth(msg);
         g2.drawString(msg, (getWidth() - tw) / 2, getHeight() / 2);
     }

@@ -34,18 +34,15 @@ public final class TextStampRenderer {
             return null;
         }
 
-        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         int fontSize = Math.max(1, Math.round(style.getRelativeSize() * area.height));
         Font font = FontRegistry.resolve(style.getFontFamily(), style.getFontStyle(), fontSize);
         g.setFont(font);
         FontMetrics fm = g.getFontMetrics();
 
-        int maxWidth = style.getWrapWidthFraction() > 0
-                ? (int) Math.round(style.getWrapWidthFraction() * area.width)
+        int maxWidth = style.getWrapWidthFraction() > 0 ? (int) Math.round(style.getWrapWidthFraction() * area.width)
                 : 0;
         List<String> lines = wrapLines(fm, text, maxWidth);
 
@@ -76,13 +73,11 @@ public final class TextStampRenderer {
             Color bc = style.getBoxColor();
             int alpha = Math.round(style.getBoxOpacity() * 255);
             g.setColor(new Color(bc.getRed(), bc.getGreen(), bc.getBlue(), alpha));
-            g.fillRoundRect(x0 - pad, y0 - pad, blockWidth + 2 * pad, blockHeight + 2 * pad,
-                    pad, pad);
+            g.fillRoundRect(x0 - pad, y0 - pad, blockWidth + 2 * pad, blockHeight + 2 * pad, pad, pad);
         }
 
         int shadowOffset = style.getShadowStrength() > 0
-                ? Math.max(1, Math.round(fontSize * 0.10f * style.getShadowStrength()))
-                : 0;
+                ? Math.max(1, Math.round(fontSize * 0.10f * style.getShadowStrength())) : 0;
         int shadowAlpha = Math.round(200 * style.getShadowStrength());
 
         int baseline = y0 + fm.getAscent();

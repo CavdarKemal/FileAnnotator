@@ -43,8 +43,7 @@ public final class StampStyleCodec {
         s.setRelativeSize((float) parseDouble(p, prefix + "relativeSize", base.getRelativeSize()));
         s.setRelX(parseDouble(p, prefix + "relX", base.getRelX()));
         s.setRelY(parseDouble(p, prefix + "relY", base.getRelY()));
-        s.setOutline(Boolean.parseBoolean(
-                p.getProperty(prefix + "outline", Boolean.toString(base.isOutline()))));
+        s.setOutline(Boolean.parseBoolean(p.getProperty(prefix + "outline", Boolean.toString(base.isOutline()))));
         s.setRotationDegrees(parseDouble(p, prefix + "rotationDegrees", base.getRotationDegrees()));
         s.setWrapWidthFraction(parseDouble(p, prefix + "wrapWidthFraction", base.getWrapWidthFraction()));
         s.setBoxEnabled(Boolean.parseBoolean(

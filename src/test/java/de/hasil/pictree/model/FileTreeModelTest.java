@@ -62,8 +62,7 @@ class FileTreeModelTest {
         Files.createDirectory(dir.resolve("unterordner"));
 
         // Filter: nur JPEG -> png und txt verschwinden, Ordner bleibt.
-        ImageTypeFilter jpegOnly = ImageTypeFilter.all()
-                .withGroup("PNG", false).withGroup("GIF", false)
+        ImageTypeFilter jpegOnly = ImageTypeFilter.all().withGroup("PNG", false).withGroup("GIF", false)
                 .withGroup("BMP", false).withGroup("TIFF", false);
         FileTreeNode root = FileTreeNode.forDirectory(dir.toFile(), jpegOnly);
 

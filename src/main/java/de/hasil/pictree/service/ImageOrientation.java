@@ -30,8 +30,7 @@ public final class ImageOrientation {
         try {
             ImageMetadata metadata = Imaging.getMetadata(file);
             if (metadata instanceof JpegImageMetadata jpeg) {
-                TiffField field = jpeg.findExifValueWithExactMatch(
-                        TiffTagConstants.TIFF_TAG_ORIENTATION);
+                TiffField field = jpeg.findExifValueWithExactMatch(TiffTagConstants.TIFF_TAG_ORIENTATION);
                 if (field != null) {
                     int value = field.getIntValue();
                     if (value >= 1 && value <= 8) {

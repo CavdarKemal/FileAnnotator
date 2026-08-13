@@ -20,8 +20,7 @@ import de.hasil.pictree.model.StampStyle;
 class BatchServiceTest {
 
     private void writeJpeg(Path dir, String name, int w, int h) throws Exception {
-        ImageIO.write(new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB), "jpg",
-                dir.resolve(name).toFile());
+        ImageIO.write(new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB), "jpg", dir.resolve(name).toFile());
     }
 
     private BatchService newService(Path album) {
@@ -44,12 +43,10 @@ class BatchServiceTest {
     @Test
     void listImagesRespectsTypeFilter(@TempDir Path src) throws Exception {
         writeJpeg(src, "foto.jpg", 10, 10);
-        ImageIO.write(new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB), "png",
-                src.resolve("grafik.png").toFile());
+        ImageIO.write(new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB), "png", src.resolve("grafik.png").toFile());
 
         de.hasil.pictree.model.ImageTypeFilter jpegOnly = de.hasil.pictree.model.ImageTypeFilter.all()
-                .withGroup("PNG", false).withGroup("GIF", false)
-                .withGroup("BMP", false).withGroup("TIFF", false);
+                .withGroup("PNG", false).withGroup("GIF", false).withGroup("BMP", false).withGroup("TIFF", false);
         var images = BatchService.listImages(src.toFile(), jpegOnly);
         assertEquals(1, images.size());
         assertEquals("foto.jpg", images.get(0).getName());
@@ -68,8 +65,7 @@ class BatchServiceTest {
         StampStyle style = new StampStyle();
 
         BatchService service = newService(album);
-        BatchService.BatchResult result = service.processFolder(
-                src.toFile(), "Stempel", style,
+        BatchService.BatchResult result = service.processFolder(src.toFile(), "Stempel", style,
                 (done, total, current, saved) -> progressCalls.incrementAndGet());
 
         // 3 echte JPGs + 1 fake.png werden als Bild-Kandidaten erkannt (Endung),
@@ -118,8 +114,7 @@ class BatchServiceTest {
 
         BatchService service = newService(album);
         var subset = java.util.List.of(src.resolve("a.jpg").toFile(), src.resolve("c.jpg").toFile());
-        BatchService.BatchResult r = service.processFiles(
-                subset, out.toFile(), "S", new StampStyle(), null, null);
+        BatchService.BatchResult r = service.processFiles(subset, out.toFile(), "S", new StampStyle(), null, null);
 
         assertEquals(2, r.saved().size());
         assertEquals(out.toFile(), r.outputDir());
@@ -163,8 +158,7 @@ class BatchServiceTest {
     @Test
     void emptyOrNonFolderYieldsEmptyResult(@TempDir Path album) {
         BatchService service = newService(album);
-        BatchService.BatchResult r = service.processFolder(
-                new File("Z:/gibt/es/nicht"), "x", new StampStyle(), null);
+        BatchService.BatchResult r = service.processFolder(new File("Z:/gibt/es/nicht"), "x", new StampStyle(), null);
         assertEquals(0, r.total());
     }
 }

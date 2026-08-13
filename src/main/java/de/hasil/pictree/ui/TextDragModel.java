@@ -26,8 +26,7 @@ public class TextDragModel {
         if (textRect == null || p == null) {
             return false;
         }
-        Rectangle padded = new Rectangle(
-                textRect.x - pad, textRect.y - pad,
+        Rectangle padded = new Rectangle(textRect.x - pad, textRect.y - pad,
                 textRect.width + 2 * pad, textRect.height + 2 * pad);
         return padded.contains(p);
     }

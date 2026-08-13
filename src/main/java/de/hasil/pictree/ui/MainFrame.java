@@ -188,8 +188,7 @@ public class MainFrame extends JFrame {
         batchFolder = selectedFolder;
 
         // "Zuletzt verwendet": Ordnerauswahl oder Elternordner eines Bildes.
-        File recentFolder = selectedFolder != null ? selectedFolder
-                : (file != null ? file.getParentFile() : null);
+        File recentFolder = selectedFolder != null ? selectedFolder : (file != null ? file.getParentFile() : null);
         if (recentFolder != null) {
             settings.addRecentFolder(recentFolder.getAbsolutePath());
             updateRecentMenu();
@@ -230,8 +229,7 @@ public class MainFrame extends JFrame {
                 previewPanel.showFile(folder); // zeigt "keine Bildvorschau"
             } else {
                 previewPanel.showDummy();
-                previewPanel.setOverlayText(
-                        PlaceholderResolver.resolve(commentPanel.getText(), overlayContextFile));
+                previewPanel.setOverlayText(PlaceholderResolver.resolve(commentPanel.getText(), overlayContextFile));
             }
         } finally {
             restoring = false;
@@ -314,8 +312,7 @@ public class MainFrame extends JFrame {
     private void onFilterChanged(ImageTypeFilter filter) {
         imageFilter = filter;
         settings.setImageTypeFilter(filter);
-        treePanel.rebuildPreservingSelection(
-                new LazyFileTreeModel(FileTreeNode.createComputerRoot(filter)));
+        treePanel.rebuildPreservingSelection(new LazyFileTreeModel(FileTreeNode.createComputerRoot(filter)));
         if (selectedFolder != null) {
             enterFolderMode(selectedFolder);
         } else {
@@ -544,8 +541,7 @@ public class MainFrame extends JFrame {
 
     /** Ermöglicht das Ziehen von Dateien/Ordnern aus dem Explorer ins Fenster. */
     private void installFileDrop() {
-        new java.awt.dnd.DropTarget(this, java.awt.dnd.DnDConstants.ACTION_COPY,
-                new java.awt.dnd.DropTargetAdapter() {
+        new java.awt.dnd.DropTarget(this, java.awt.dnd.DnDConstants.ACTION_COPY, new java.awt.dnd.DropTargetAdapter() {
                     @Override
                     @SuppressWarnings("unchecked")
                     public void drop(java.awt.dnd.DropTargetDropEvent event) {
@@ -587,8 +583,7 @@ public class MainFrame extends JFrame {
         root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, menuMask), "pictree.redo");
         root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask | InputEvent.SHIFT_DOWN_MASK),
-                        "pictree.redo");
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask | InputEvent.SHIFT_DOWN_MASK), "pictree.redo");
         root.getActionMap().put("pictree.undo", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -709,21 +704,17 @@ public class MainFrame extends JFrame {
             // Neben dem Original im Quellordner speichern (kollisionsfreier neuer Name);
             // das Original bleibt unberührt.
             File targetDir = original.getParentFile();
-            SaveService out = targetDir != null
-                    ? new SaveService(targetDir.toPath(), saveService.getQuality())
+            SaveService out = targetDir != null ? new SaveService(targetDir.toPath(), saveService.getQuality())
                     : saveService;
             File saved = out.save(stamped, original.getName());
             boolean exifCopied = exifService.copyExif(original, saved);
             iccService.copyIccProfile(original, saved);
-            statusLabel.setText("Gespeichert: " + saved.getAbsolutePath()
-                    + (exifCopied ? " (EXIF übernommen)" : ""));
-            JOptionPane.showMessageDialog(this,
-                    "Bild gespeichert:\n" + saved.getAbsolutePath()
+            statusLabel.setText("Gespeichert: " + saved.getAbsolutePath() + (exifCopied ? " (EXIF übernommen)" : ""));
+            JOptionPane.showMessageDialog(this, "Bild gespeichert:\n" + saved.getAbsolutePath()
                             + (exifCopied ? "\nEXIF-Daten wurden übernommen." : ""),
                     "Gespeichert", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Speichern fehlgeschlagen:\n" + ex.getMessage(),
+            JOptionPane.showMessageDialog(this, "Speichern fehlgeschlagen:\n" + ex.getMessage(),
                     "Fehler", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -741,12 +732,10 @@ public class MainFrame extends JFrame {
             return;
         }
         // Zielordner aus dem Stempeltext ableiten (Einzel-Save bleibt unberührt).
-        final File outputDir = new File(batchFolder,
-                BatchService.sanitizeFolderName(commentPanel.getText()));
+        final File outputDir = new File(batchFolder, BatchService.sanitizeFolderName(commentPanel.getText()));
         int choice = JOptionPane.showConfirmDialog(this,
                 selected.size() + " ausgewählte(s) Bild(er)\nmit demselben Stempel versehen und speichern nach:\n"
-                        + outputDir.getAbsolutePath() + " ?",
-                "Stapelverarbeitung", JOptionPane.OK_CANCEL_OPTION);
+                        + outputDir.getAbsolutePath() + " ?", "Stapelverarbeitung", JOptionPane.OK_CANCEL_OPTION);
         if (choice != JOptionPane.OK_OPTION) {
             return;
         }
@@ -788,13 +777,10 @@ public class MainFrame extends JFrame {
 
     /** Zeigt das Batch-Ergebnis; bei Fehlern mit scrollbarer Detailliste. */
     private void showBatchResult(BatchService.BatchResult result) {
-        String header = "Stapelverarbeitung abgeschlossen.\n"
-                + result.saved().size() + " Bild(er) gespeichert nach:\n"
-                + result.outputDir() + "\n"
-                + result.failed().size() + " fehlgeschlagen.";
+        String header = "Stapelverarbeitung abgeschlossen.\n" + result.saved().size() + " Bild(er) gespeichert nach:\n"
+                + result.outputDir() + "\n" + result.failed().size() + " fehlgeschlagen.";
         if (result.failed().isEmpty()) {
-            JOptionPane.showMessageDialog(this, header, "Stapelverarbeitung",
-                    JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, header, "Stapelverarbeitung", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         StringBuilder details = new StringBuilder(header).append("\n\nFehler:\n");

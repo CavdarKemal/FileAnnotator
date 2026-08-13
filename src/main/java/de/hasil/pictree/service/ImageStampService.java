@@ -27,8 +27,7 @@ public final class ImageStampService {
     }
 
     /** Mit optionalem Logo-Overlay. */
-    public static BufferedImage renderStamp(BufferedImage source, String text, StampStyle style,
-            LogoOverlay logo) {
+    public static BufferedImage renderStamp(BufferedImage source, String text, StampStyle style, LogoOverlay logo) {
         return render(new RenderRequest(source, text, style, logo));
     }
 
@@ -46,8 +45,7 @@ public final class ImageStampService {
 
         Graphics2D g = out.createGraphics();
         try {
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             // Weißer Untergrund für den Fall, dass die Quelle Transparenz besitzt (z. B. PNG).
             g.setColor(Color.WHITE);
             g.fillRect(0, 0, w, h);

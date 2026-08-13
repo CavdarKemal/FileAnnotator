@@ -60,8 +60,7 @@ class PlaceholderResolverTest {
     @Test
     void combinesMultiplePlaceholders(@TempDir Path dir) throws Exception {
         File img = jpegWithExif(dir, "foto.jpg");
-        assertEquals("foto – 2021-07-15",
-                PlaceholderResolver.resolve("{dateiname} – {datum}", img));
+        assertEquals("foto – 2021-07-15", PlaceholderResolver.resolve("{dateiname} – {datum}", img));
     }
 
     @Test

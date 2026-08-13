@@ -98,8 +98,7 @@ public class FileFilterControl extends JPanel {
     }
 
     private void updateButton() {
-        String summary = filter.isAllActive()
-                ? I18n.t("filter.allImages")
+        String summary = filter.isAllActive() ? I18n.t("filter.allImages")
                 : (filter.isEmpty() ? "—" : String.join(", ", activeGroupLabels()));
         button.setToolTipText(I18n.t("filter.title") + ": " + summary);
     }

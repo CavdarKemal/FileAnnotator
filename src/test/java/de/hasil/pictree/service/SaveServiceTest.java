@@ -73,8 +73,7 @@ class SaveServiceTest {
         BufferedImage img = gradient(300, 200);
         File high = new SaveService(dir.resolve("hi"), 0.95f).save(img, "a.jpg");
         File low = new SaveService(dir.resolve("lo"), 0.3f).save(img, "a.jpg");
-        assertTrue(low.length() < high.length(),
-                "Niedrigere Qualität sollte kleinere Datei ergeben (lo=" + low.length()
+        assertTrue(low.length() < high.length(), "Niedrigere Qualität sollte kleinere Datei ergeben (lo=" + low.length()
                         + ", hi=" + high.length() + ")");
     }
 

@@ -21,8 +21,7 @@ public final class FontRegistry {
     public static final String ROBOTO = "Roboto";
 
     /** Auswählbare Familien für die Werkzeugleiste. */
-    public static final List<String> AVAILABLE_FAMILIES =
-            List.of(ROBOTO, "SansSerif", "Serif", "Monospaced");
+    public static final List<String> AVAILABLE_FAMILIES = List.of(ROBOTO, "SansSerif", "Serif", "Monospaced");
 
     private static final Logger LOG = Logging.get(FontRegistry.class);
     private static final Font ROBOTO_BASE = loadRoboto();

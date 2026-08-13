@@ -35,8 +35,7 @@ public class StyleToolbar extends JToolBar {
     private final Runnable onCommit;
 
     private final JButton colorButton = new JButton("Farbe");
-    private final JComboBox<String> fontBox =
-            new JComboBox<>(FontRegistry.AVAILABLE_FAMILIES.toArray(new String[0]));
+    private final JComboBox<String> fontBox = new JComboBox<>(FontRegistry.AVAILABLE_FAMILIES.toArray(new String[0]));
     private final JToggleButton boldToggle = new JToggleButton("F");
     private final JSlider sizeSlider = new JSlider(MIN_PERCENT, MAX_PERCENT, MIN_PERCENT);
     private final JSlider rotationSlider = new JSlider(-180, 180, 0);

@@ -43,8 +43,7 @@ class TextStampRendererTest {
         StampStyle style = new StampStyle();
         style.setColor(Color.WHITE);
 
-        Rectangle bounds = TextStampRenderer.drawStamp(g, "Hallo", style,
-                new Rectangle(0, 0, 300, 200));
+        Rectangle bounds = TextStampRenderer.drawStamp(g, "Hallo", style, new Rectangle(0, 0, 300, 200));
         g.dispose();
 
         assertNotNull(bounds);
@@ -56,8 +55,7 @@ class TextStampRendererTest {
     void blankTextDrawsNothing() {
         BufferedImage img = blackCanvas(100, 100);
         Graphics2D g = img.createGraphics();
-        Rectangle bounds = TextStampRenderer.drawStamp(g, "   ", new StampStyle(),
-                new Rectangle(0, 0, 100, 100));
+        Rectangle bounds = TextStampRenderer.drawStamp(g, "   ", new StampStyle(), new Rectangle(0, 0, 100, 100));
         g.dispose();
         assertNull(bounds);
         assertTrue(nonBlackPixels(img) == 0);

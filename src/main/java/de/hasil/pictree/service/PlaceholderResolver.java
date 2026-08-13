@@ -82,8 +82,7 @@ public final class PlaceholderResolver {
             return exifDate.substring(0, 10).replace(':', '-');
         }
         if (image != null && image.exists()) {
-            LocalDate d = Instant.ofEpochMilli(image.lastModified())
-                    .atZone(ZoneId.systemDefault()).toLocalDate();
+            LocalDate d = Instant.ofEpochMilli(image.lastModified()).atZone(ZoneId.systemDefault()).toLocalDate();
             return d.toString();
         }
         return "";
@@ -98,8 +97,7 @@ public final class PlaceholderResolver {
             if (exif != null) {
                 TiffImageMetadata.GpsInfo gpsInfo = exif.getGpsInfo();
                 if (gpsInfo != null) {
-                    return String.format(java.util.Locale.ROOT, "%.5f, %.5f",
-                            gpsInfo.getLatitudeAsDegreesNorth(),
+                    return String.format(java.util.Locale.ROOT, "%.5f, %.5f", gpsInfo.getLatitudeAsDegreesNorth(),
                             gpsInfo.getLongitudeAsDegreesEast());
                 }
             }

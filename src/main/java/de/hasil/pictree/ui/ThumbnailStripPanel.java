@@ -67,8 +67,7 @@ public class ThumbnailStripPanel extends JPanel {
         top.add(allBox);
         add(top, BorderLayout.NORTH);
 
-        JScrollPane scroll = new JScrollPane(strip,
-                ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
+        JScrollPane scroll = new JScrollPane(strip, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         scroll.getHorizontalScrollBar().setUnitIncrement(24);
         add(scroll, BorderLayout.CENTER);

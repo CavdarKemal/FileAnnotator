@@ -39,8 +39,7 @@ class ImageTypeFilterTest {
         File jpg = Files.writeString(dir.resolve("b.jpg"), "x").toFile();
         File txt = Files.writeString(dir.resolve("c.txt"), "x").toFile();
 
-        ImageTypeFilter jpegOnly = ImageTypeFilter.all()
-                .withGroup("PNG", false).withGroup("GIF", false)
+        ImageTypeFilter jpegOnly = ImageTypeFilter.all().withGroup("PNG", false).withGroup("GIF", false)
                 .withGroup("BMP", false).withGroup("TIFF", false);
         assertTrue(jpegOnly.acceptsImage(jpg));
         assertFalse(jpegOnly.acceptsImage(png));

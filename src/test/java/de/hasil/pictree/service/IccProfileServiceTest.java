@@ -32,8 +32,7 @@ class IccProfileServiceTest {
         // Quelle mit eingebettetem sRGB-ICC erzeugen.
         byte[] srgb = ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData();
         File source = plainJpeg(dir, "src.jpg");
-        byte[] withIcc = IccProfileService.insertIccProfile(
-                Files.readAllBytes(source.toPath()), srgb);
+        byte[] withIcc = IccProfileService.insertIccProfile(Files.readAllBytes(source.toPath()), srgb);
         Files.write(source.toPath(), withIcc);
 
         // Zielbild ohne Profil.
@@ -57,8 +56,7 @@ class IccProfileServiceTest {
     void insertedJpegRemainsReadable(@TempDir Path dir) throws Exception {
         byte[] srgb = ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData();
         File img = plainJpeg(dir, "img.jpg");
-        byte[] withIcc = IccProfileService.insertIccProfile(
-                Files.readAllBytes(img.toPath()), srgb);
+        byte[] withIcc = IccProfileService.insertIccProfile(Files.readAllBytes(img.toPath()), srgb);
         Files.write(img.toPath(), withIcc);
 
         BufferedImage reread = ImageIO.read(img);

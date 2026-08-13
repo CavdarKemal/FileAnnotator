@@ -49,11 +49,8 @@ public final class Logging {
             String loggerName = record.getLoggerName() == null ? "" : record.getLoggerName();
             int dot = loggerName.lastIndexOf('.');
             String shortName = dot >= 0 ? loggerName.substring(dot + 1) : loggerName;
-            StringBuilder sb = new StringBuilder()
-                    .append('[').append(record.getLevel()).append("] ")
-                    .append(shortName).append(": ")
-                    .append(formatMessage(record))
-                    .append(System.lineSeparator());
+            StringBuilder sb = new StringBuilder().append('[').append(record.getLevel()).append("] ")
+                    .append(shortName).append(": ").append(formatMessage(record)).append(System.lineSeparator());
             if (record.getThrown() != null) {
                 sb.append(record.getThrown()).append(System.lineSeparator());
             }

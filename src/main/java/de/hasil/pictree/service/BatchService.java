@@ -33,8 +33,7 @@ public class BatchService {
     private static final int MAX_FOLDER_NAME = 60;
 
     /** Unter Windows reservierte Gerätenamen (case-insensitiv). */
-    private static final java.util.Set<String> RESERVED_NAMES = java.util.Set.of(
-            "con", "prn", "aux", "nul",
+    private static final java.util.Set<String> RESERVED_NAMES = java.util.Set.of("con", "prn", "aux", "nul",
             "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
             "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9");
 

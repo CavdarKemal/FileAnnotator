@@ -12,8 +12,7 @@ class FontRegistryTest {
 
     @Test
     void robotoResourceIsBundledAndAvailable() {
-        assertTrue(FontRegistry.isRobotoAvailable(),
-                "Roboto-Regular.ttf muss als Resource gebündelt sein");
+        assertTrue(FontRegistry.isRobotoAvailable(), "Roboto-Regular.ttf muss als Resource gebündelt sein");
     }
 
     @Test

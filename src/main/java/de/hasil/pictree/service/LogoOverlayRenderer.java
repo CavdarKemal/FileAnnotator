@@ -34,8 +34,7 @@ public final class LogoOverlayRenderer {
         int x = cx - w / 2;
         int y = cy - h / 2;
 
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         Composite old = g.getComposite();
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, overlay.getOpacity()));
         g.drawImage(logo, x, y, w, h, null);
