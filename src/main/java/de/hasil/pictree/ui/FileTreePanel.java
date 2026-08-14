@@ -48,6 +48,11 @@ public class FileTreePanel extends JScrollPane {
         tree.setShowsRootHandles(true);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.setCellRenderer(new FileSystemTreeCellRenderer());
+        // Große Verzeichnisse flüssig aufklappen: feste Zeilenhöhe erzwingt den schnellen
+        // FixedHeightLayoutCache, large model rendert nur sichtbare Zeilen statt alle zu vermessen.
+        int rowHeight = tree.getRowHeight();
+        tree.setRowHeight(rowHeight > 0 ? rowHeight : 22);
+        tree.setLargeModel(true);
         tree.addTreeSelectionListener(e -> fireSelection());
         installAsyncExpansion();
         setViewportView(tree);
@@ -78,9 +83,9 @@ public class FileTreePanel extends JScrollPane {
 
                     @Override
                     protected void done() {
+                        tree.expandPath(path);
                         loading.remove(node);
                         updateBusyCursor();
-                        tree.expandPath(path);
                     }
                 }.execute();
                 throw new ExpandVetoException(event);
