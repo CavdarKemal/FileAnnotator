@@ -88,6 +88,11 @@ public class FileTreeNode {
         return !isDirectory();
     }
 
+    /** True, wenn die Kinder bereits geladen (gecacht) sind – löst keinen Ladevorgang aus. */
+    public boolean isChildrenLoaded() {
+        return children != null;
+    }
+
     /** Lazy geladene, sortierte Kinderliste. Bei fehlendem Zugriff leer. */
     public List<FileTreeNode> getChildren() {
         if (children == null) {

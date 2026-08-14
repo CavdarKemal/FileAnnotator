@@ -1,14 +1,22 @@
 package de.hasil.pictree.ui;
 
+import java.awt.Cursor;
 import java.io.File;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
+import javax.swing.SwingWorker;
+import javax.swing.event.TreeExpansionEvent;
+import javax.swing.event.TreeWillExpandListener;
+import javax.swing.tree.ExpandVetoException;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
@@ -18,11 +26,17 @@ import de.hasil.pictree.model.LazyFileTreeModel;
 /**
  * Baum-Panel im Explorer-Stil. Zeigt das Dateisystem, meldet Datei- und
  * Ordner-Selektionen an registrierte Listener.
+ *
+ * <p>Das Aufklappen eines noch nicht geladenen Ordners läuft asynchron: die
+ * (potenziell teure) Kinderliste wird im Hintergrund ermittelt (Warte-Cursor),
+ * danach wird der Pfad automatisch expandiert – so blockiert der EDT nie.
  */
 public class FileTreePanel extends JScrollPane {
 
     private final JTree tree;
     private final List<Consumer<File>> selectionListeners = new ArrayList<>();
+    /** Knoten, deren Kinder gerade im Hintergrund geladen werden (Identitäts-Set). */
+    private final transient Set<FileTreeNode> loading = Collections.newSetFromMap(new IdentityHashMap<>());
 
     public FileTreePanel() {
         this(new LazyFileTreeModel());
@@ -35,7 +49,53 @@ public class FileTreePanel extends JScrollPane {
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.setCellRenderer(new FileSystemTreeCellRenderer());
         tree.addTreeSelectionListener(e -> fireSelection());
+        installAsyncExpansion();
         setViewportView(tree);
+    }
+
+    /** Lädt Kinder beim Aufklappen im Hintergrund, statt den EDT zu blockieren. */
+    private void installAsyncExpansion() {
+        tree.addTreeWillExpandListener(new TreeWillExpandListener() {
+            @Override
+            public void treeWillExpand(TreeExpansionEvent event) throws ExpandVetoException {
+                Object last = event.getPath().getLastPathComponent();
+                if (!(last instanceof FileTreeNode node)) {
+                    return;
+                }
+                if (node.isLeaf() || node.isChildrenLoaded() || loading.contains(node)) {
+                    return; // bereits geladen oder in Arbeit -> normal aufklappen
+                }
+                // Diese Expansion abbrechen; Kinder im Hintergrund laden, danach erneut aufklappen.
+                loading.add(node);
+                updateBusyCursor();
+                final TreePath path = event.getPath();
+                new SwingWorker<Void, Void>() {
+                    @Override
+                    protected Void doInBackground() {
+                        node.getChildren(); // teures listFiles + Stats off-EDT
+                        return null;
+                    }
+
+                    @Override
+                    protected void done() {
+                        loading.remove(node);
+                        updateBusyCursor();
+                        tree.expandPath(path);
+                    }
+                }.execute();
+                throw new ExpandVetoException(event);
+            }
+
+            @Override
+            public void treeWillCollapse(TreeExpansionEvent event) {
+                // Einklappen ist immer erlaubt.
+            }
+        });
+    }
+
+    private void updateBusyCursor() {
+        tree.setCursor(Cursor.getPredefinedCursor(
+                loading.isEmpty() ? Cursor.DEFAULT_CURSOR : Cursor.WAIT_CURSOR));
     }
 
     private void fireSelection() {

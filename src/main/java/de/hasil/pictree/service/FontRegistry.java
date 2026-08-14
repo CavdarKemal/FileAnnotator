@@ -3,7 +3,10 @@ package de.hasil.pictree.service;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -20,13 +23,37 @@ public final class FontRegistry {
     /** Familienname der gebündelten Schrift. */
     public static final String ROBOTO = "Roboto";
 
-    /** Auswählbare Familien für die Werkzeugleiste. */
-    public static final List<String> AVAILABLE_FAMILIES = List.of(ROBOTO, "SansSerif", "Serif", "Monospaced");
-
     private static final Logger LOG = Logging.get(FontRegistry.class);
     private static final Font ROBOTO_BASE = loadRoboto();
 
+    /**
+     * Auswählbare Familien für die Werkzeugleiste: zuerst die gebündelte Roboto
+     * und die logischen JDK-Familien, danach alle im System installierten
+     * Schriftfamilien (alphabetisch, dedupliziert).
+     */
+    public static final List<String> AVAILABLE_FAMILIES = buildAvailableFamilies();
+
     private FontRegistry() {
+    }
+
+    private static List<String> buildAvailableFamilies() {
+        Set<String> families = new LinkedHashSet<>();
+        families.add(ROBOTO);
+        families.add("SansSerif");
+        families.add("Serif");
+        families.add("Monospaced");
+        try {
+            String[] system = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
+            Arrays.sort(system, String.CASE_INSENSITIVE_ORDER);
+            for (String family : system) {
+                if (family != null && !family.isBlank()) {
+                    families.add(family);
+                }
+            }
+        } catch (RuntimeException ex) {
+            LOG.log(Level.FINE, "System-Schriften nicht ermittelbar: {0}", ex.getMessage());
+        }
+        return List.copyOf(families);
     }
 
     private static Font loadRoboto() {

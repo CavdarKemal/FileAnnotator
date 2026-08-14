@@ -76,9 +76,15 @@ public final class TextStampRenderer {
             g.fillRoundRect(x0 - pad, y0 - pad, blockWidth + 2 * pad, blockHeight + 2 * pad, pad, pad);
         }
 
-        int shadowOffset = style.getShadowStrength() > 0
-                ? Math.max(1, Math.round(fontSize * 0.10f * style.getShadowStrength())) : 0;
-        int shadowAlpha = Math.round(200 * style.getShadowStrength());
+        // Schatten-Versatz stets deutlich größer als der Umriss wählen – sonst
+        // liegt der (dunkle) Schatten komplett unter dem Umriss-Halo und ist unsichtbar.
+        int shadowOffset = 0;
+        int shadowAlpha = 0;
+        if (style.getShadowStrength() > 0) {
+            int base = Math.max(2, Math.round(fontSize * 0.16f * style.getShadowStrength()));
+            shadowOffset = (style.isOutline() ? outlinePx : 0) + base;
+            shadowAlpha = Math.round(190 * style.getShadowStrength());
+        }
 
         int baseline = y0 + fm.getAscent();
         for (String line : lines) {
