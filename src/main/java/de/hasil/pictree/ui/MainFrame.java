@@ -1,6 +1,8 @@
 package de.hasil.pictree.ui;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -88,6 +90,8 @@ public class MainFrame extends JFrame {
     private File annotatedImage;
     /** Datei, gegen die Text-Platzhalter der Vorschau aufgelöst werden (oder null). */
     private File overlayContextFile;
+    /** Generationszähler für asynchrones Verzeichnis-Einlesen (verwirft veraltete Läufe). */
+    private int folderLoadGeneration;
     private final JMenu recentMenu = new JMenu("Zuletzt verwendet");
     private final JMenu presetMenu = new JMenu("Vorlagen");
     private final PresetStore presetStore = new PresetStore();
@@ -198,7 +202,9 @@ public class MainFrame extends JFrame {
             // Ordner-Modus: Thumbnail-Streifen + Dummy-Leinwand zum Positionieren des Stempels.
             enterFolderMode(selectedFolder);
         } else {
-            // Einzeldatei/nichts: Streifen ausblenden, normales Bild-Editieren.
+            // Einzeldatei/nichts: laufendes Verzeichnis-Einlesen verwerfen, Streifen ausblenden.
+            folderLoadGeneration++;
+            setBusy(false);
             thumbnailStrip.clear();
             setStripVisible(false);
             updateBatchButtonEnable();
@@ -212,7 +218,37 @@ public class MainFrame extends JFrame {
      * und Größe per Maus gesetzt werden können (Vorlage für den Stapel).
      */
     private void enterFolderMode(File folder) {
-        java.util.List<File> images = BatchService.listImages(folder, imageFilter);
+        final int gen = ++folderLoadGeneration;
+        // Sofortige Rückmeldung: Sanduhr + Statuszeile, während das Verzeichnis gelesen wird.
+        setBusy(true);
+        statusLabel.setText(I18n.t("status.readingFolder") + " " + folder.getAbsolutePath());
+
+        new SwingWorker<java.util.List<File>, Void>() {
+            @Override
+            protected java.util.List<File> doInBackground() {
+                // Verzeichnis-I/O (listFiles + Filter) im Hintergrund, nicht auf dem EDT.
+                return BatchService.listImages(folder, imageFilter);
+            }
+
+            @Override
+            protected void done() {
+                if (gen != folderLoadGeneration) {
+                    return; // Eine neuere Auswahl hat diesen Lauf überholt.
+                }
+                java.util.List<File> images;
+                try {
+                    images = get();
+                } catch (Exception ex) {
+                    images = java.util.List.of();
+                }
+                applyFolderContents(folder, images);
+                setBusy(false);
+            }
+        }.execute();
+    }
+
+    /** Übernimmt die im Hintergrund ermittelten Bilder eines Ordners in die UI (auf dem EDT). */
+    private void applyFolderContents(File folder, java.util.List<File> images) {
         thumbnailStrip.setImages(images);
         setStripVisible(!images.isEmpty());
         updateBatchButtonEnable();
@@ -221,7 +257,7 @@ public class MainFrame extends JFrame {
         annotatedImage = null;
         // Dummy ist kein echtes Bild -> kein Einzel-Speichern.
         commentPanel.getSaveButton().setEnabled(false);
-        statusLabel.setText(folder.getAbsolutePath());
+        statusLabel.setText(folder.getAbsolutePath() + "  (" + images.size() + ")");
 
         restoring = true;
         try {
@@ -236,6 +272,13 @@ public class MainFrame extends JFrame {
         }
         history.reset(currentEditState());
         updateUndoRedoState();
+    }
+
+    /** Schaltet die Warteanzeige (Sanduhr über der Glass-Pane; blockiert Eingaben währenddessen). */
+    private void setBusy(boolean busy) {
+        Component glass = getGlassPane();
+        glass.setCursor(Cursor.getPredefinedCursor(busy ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR));
+        glass.setVisible(busy);
     }
 
     /**
