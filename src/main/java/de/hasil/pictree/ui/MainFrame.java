@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.AbstractAction;
+import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -114,7 +115,9 @@ public class MainFrame extends JFrame {
         this.batchService = new BatchService(saveService, exifService);
         style.copyFrom(settings.getDefaultStyle());
 
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        // Beenden vollständig selbst steuern (persistieren + garantiert System.exit),
+        // damit ein Fehler beim Speichern das Schließen über X nie blockiert.
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setMinimumSize(new Dimension(800, 560));
         setSize(settings.getWindowWidth(), settings.getWindowHeight());
         setLocationByPlatform(true);
@@ -130,6 +133,13 @@ public class MainFrame extends JFrame {
         statusLabel = new JLabel(I18n.t("status.noSelection"));
         styleToolbar = new StyleToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
         effectsToolbar = new EffectsToolbar(style, this::refreshPreviewStyle, this::onEditCommitted);
+
+        // Beenden-Button am Ende der Werkzeugleiste.
+        JButton quitButton = new JButton(I18n.t("menu.quit"));
+        quitButton.setToolTipText(I18n.t("menu.quit"));
+        quitButton.addActionListener(e -> quit());
+        styleToolbar.addSeparator();
+        styleToolbar.add(quitButton);
 
         JPanel southPanel = new JPanel(new BorderLayout());
         southPanel.add(commentPanel, BorderLayout.CENTER);
@@ -173,8 +183,7 @@ public class MainFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                persistCurrentAnnotation();
-                persistSettings();
+                quit();
             }
         });
 
@@ -380,6 +389,18 @@ public class MainFrame extends JFrame {
     }
 
     /** Speichert bzw. entfernt die Sidecar-Annotation des aktuell bearbeiteten Bildes. */
+    /** Persistiert (fehlerrobust) und beendet die Anwendung garantiert. */
+    private void quit() {
+        try {
+            persistCurrentAnnotation();
+            persistSettings();
+        } catch (RuntimeException ex) {
+            LOG.log(Level.WARNING, "Beim Beenden ist ein Fehler aufgetreten", ex);
+        }
+        dispose();
+        System.exit(0);
+    }
+
     private void persistCurrentAnnotation() {
         if (annotatedImage == null) {
             return;
@@ -415,6 +436,12 @@ public class MainFrame extends JFrame {
         recentMenu.setText(I18n.t("menu.recent"));
         updateRecentMenu();
         file.add(recentMenu);
+        file.addSeparator();
+        JMenuItem quitItem = new JMenuItem(I18n.t("menu.quit"));
+        quitItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        quitItem.addActionListener(e -> quit());
+        file.add(quitItem);
         bar.add(file);
 
         JMenu edit = new JMenu(I18n.t("menu.edit"));
