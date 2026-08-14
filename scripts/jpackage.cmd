@@ -53,6 +53,10 @@ if errorlevel 1 (
 echo [jpackage] Bereite Eingabeordner vor ...
 if exist "target\jpackage-input" rmdir /s /q "target\jpackage-input"
 if exist "target\dist" rmdir /s /q "target\dist"
+if exist "target\dist" (
+  echo [jpackage] FEHLER: target\dist ist gesperrt. Laeuft PicTree.exe noch? Bitte die App schliessen und erneut ausfuehren.
+  exit /b 1
+)
 mkdir "target\jpackage-input"
 copy /y "target\%MAIN_JAR%" "target\jpackage-input\" >nul
 if errorlevel 1 (

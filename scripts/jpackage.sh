@@ -3,9 +3,9 @@
 # Erzeugt eine eigenständige Windows-App (App-Image) für PicTree mit
 # gebündeltem JRE – kein separates JDK nötig, Start per Doppelklick.
 #
-# Voraussetzung: JAVA_HOME zeigt auf ein JDK 26 (enthält jpackage).
+# Voraussetzung: ein JDK 26 (enthält jpackage), erkannt über JAVA26_HOME oder
+# JAVA_HOME. Maven 4 wird über MAVEN4_HOME (bzw. bekannten Pfad) gefunden.
 # Nutzung:
-#   export JAVA_HOME="/c/Program Files/AdoptOpenJDK/jdk-26"
 #   bash scripts/jpackage.sh            # -> App-Image unter target/dist/PicTree
 #   bash scripts/jpackage.sh msi        # -> .msi-Installer (benötigt WiX Toolset)
 #
@@ -17,18 +17,56 @@ APP_VERSION="0.1.0"
 MAIN_CLASS="de.hasil.pictree.App"
 MAIN_JAR="pictree.jar"
 
-: "${JAVA_HOME:?Bitte JAVA_HOME auf ein JDK 26 setzen}"
+# Windows-Pfad (C:\...) ggf. nach Unix-Form (/c/...) wandeln (Git Bash).
+to_unix() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; else echo "$1"; fi
+}
+
+# JDK mit jpackage bestimmen: JAVA26_HOME bevorzugt (auch für Build mit
+# release 26 nötig), sonst JAVA_HOME – aber nur, wenn es jpackage enthält
+# (ein system-weites JAVA_HOME zeigt oft auf ein altes JDK 8 ohne jpackage).
+JDK=""
+for cand in "${JAVA26_HOME:-}" "${JAVA_HOME:-}"; do
+  [ -n "$cand" ] || continue
+  u="$(to_unix "$cand")"
+  if [ -e "$u/bin/jpackage.exe" ] || [ -e "$u/bin/jpackage" ]; then
+    JDK="$u"
+    break
+  fi
+done
+if [ -z "$JDK" ]; then
+  echo "[jpackage] FEHLER: Kein JDK 26 mit jpackage gefunden. Bitte JAVA26_HOME oder JAVA_HOME setzen." >&2
+  exit 1
+fi
+export JAVA_HOME="$JDK"
 JPACKAGE="$JAVA_HOME/bin/jpackage"
+echo "[jpackage] Verwende JDK: $JAVA_HOME"
+
+# Maven 4 finden (Compiler-Plugin verlangt >= 3.6.3). MAVEN_HOME zeigt oft auf
+# ein älteres Maven 3.x und wird daher bewusst nicht verwendet.
+MVN=""
+for cand in "${MAVEN4_HOME:-}" "C:/Program Files/ApacheMaven/apache-maven-4.0.0"; do
+  [ -n "$cand" ] || continue
+  u="$(to_unix "$cand")"
+  if [ -x "$u/bin/mvn" ]; then
+    MVN="$u/bin/mvn"
+    break
+  fi
+done
+[ -n "$MVN" ] || MVN="mvn"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "[jpackage] Baue Fat-JAR ..."
-"$JAVA_HOME/../ApacheMaven/apache-maven-4.0.0/bin/mvn" -q package -DskipTests 2>/dev/null \
-  || mvn -q package -DskipTests
+"$MVN" -q package -DskipTests
 
 echo "[jpackage] Bereite Eingabeordner vor ..."
-rm -rf target/jpackage-input target/dist
+rm -rf target/jpackage-input
+if ! rm -rf target/dist 2>/dev/null; then
+  echo "[jpackage] FEHLER: target/dist ist gesperrt. Läuft PicTree.exe noch? Bitte die App schließen und erneut ausführen." >&2
+  exit 1
+fi
 mkdir -p target/jpackage-input
 cp "target/${MAIN_JAR}" target/jpackage-input/
 
